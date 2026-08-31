@@ -1,0 +1,21 @@
+{
+  "schema": "bossai.video-agent-customer-product.v1",
+  "productId": "bossai-video-agent",
+  "productName": "BossAI Video Agent",
+  "shortName": "BossAI Video",
+  "company": "BossAI",
+  "version": "0.1.0",
+  "desktopAppId": "com.bossai.videoagent",
+  "windowsExecutable": "BossAI Video Agent.exe",
+  "installerName": "BossAI-Video-Agent-0.1.0-Setup.exe",
+  "localDataRoot": "%LOCALAPPDATA%\\BossAI\\VideoAgent",
+  "commercialAuthority": "bossai-headquarters-commerce",
+  "agentPlatform": "bossai-os",
+  "entitlementSchema": "bossai.commercial-entitlement.v1",
+  "billingModes": [
+    "bossai_points",
+    "customer_byok"
+  ],
+  "customerDataResidency": "local-by-default",
+  "publishingEnabled": false
+}

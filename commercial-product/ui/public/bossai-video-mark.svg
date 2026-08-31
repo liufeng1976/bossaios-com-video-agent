@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="BossAI Video Agent">
+  <rect width="1024" height="1024" rx="224" fill="#1d1d1f"/>
+  <path fill="#ffffff" d="M300 220h252c151 0 242 67 242 178 0 74-41 128-111 157 88 25 141 87 141 177 0 128-104 202-277 202H300V220Zm234 280c74 0 113-28 113-81 0-51-39-76-113-76h-87v157h87Zm15 311c82 0 126-33 126-93 0-59-44-88-126-88H447v181h102Z"/>
+  <circle cx="760" cy="278" r="54" fill="#ffffff"/>
+</svg>

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "bossai.video-agent-commercial-control.v1",
+  "product": {
+    "id": "bossai-video-agent",
+    "version": "0.1.0"
+  },
+  "authority": {
+    "commercial": "bossai-headquarters-commerce",
+    "agentPlatform": "bossai-os",
+    "entitlementSchema": "bossai.commercial-entitlement.v1"
+  },
+  "request": {
+    "bossaiOsEndpoint": "/api/customer-experience/commercial-entitlement",
+    "headers": [
+      "x-bossai-product-id",
+      "x-bossai-installation-id",
+      "x-bossai-product-version"
+    ]
+  },
+  "requiredProductHeaders": {
+    "x-bossai-product-id": "bossai-video-agent",
+    "x-bossai-product-version": "0.1.0"
+  },
+  "failClosedRules": [
+    "No paid AI execution may be treated as authorized when entitlement cannot be verified.",
+    "Headquarters entitlement cannot control customer-local content, roles, workflows or business actions.",
+    "Passwords, verification codes, provider keys and customer content must never be stored in entitlement cache.",
+    "A missing BossAI OS/headquarters connection must be shown as unavailable, never as active entitlement."
+  ]
+}

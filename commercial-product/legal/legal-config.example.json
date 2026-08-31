@@ -1,0 +1,20 @@
+{
+  "schema": "bossai.video-agent-legal-config.v1",
+  "productId": "bossai-video-agent",
+  "approved": false,
+  "approvedBy": "",
+  "approvedAt": "",
+  "legalEntityName": "",
+  "registeredAddress": "",
+  "supportEmail": "",
+  "supportPhone": "",
+  "privacyContact": "",
+  "salesTerritories": [],
+  "governingLaw": "",
+  "disputeVenue": "",
+  "refundPolicy": "",
+  "supportHours": "",
+  "dataRetentionSummary": "",
+  "cloudProcessingRegions": [],
+  "termsEffectiveDate": ""
+}

@@ -1,0 +1,94 @@
+{
+  "name": "bossai-video-agent-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "description": "BossAI Video Agent commercial desktop application",
+  "author": "BossAI",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "39.8.9",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "com.bossai.videoagent",
+    "productName": "BossAI Video Agent",
+    "copyright": "Copyright © 2026 BossAI",
+    "asar": true,
+    "directories": {
+      "buildResources": "build"
+    },
+    "files": [
+      "main.cjs",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "preload.js",
+        "to": "desktop/preload.js"
+      },
+      {
+        "from": "../ui/dist",
+        "to": "ui",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "../backend",
+        "to": "backend",
+        "filter": [
+          "BossAI Video Engine.exe",
+          "server.py",
+          "bossai_os_bridge.py",
+          "qwen_adapter.py",
+          "qwen_worker.py",
+          "cosyvoice_adapter.py",
+          "cosyvoice_worker.py",
+          "musetalk_adapter.py",
+          "requirements.txt"
+        ]
+      },
+      {
+        "from": "../customer-product-metadata.json",
+        "to": "metadata/product.json"
+      },
+      {
+        "from": "../customer-third-party-notices.json",
+        "to": "legal/third-party-notices.json"
+      },
+      {
+        "from": "../runtime-installers",
+        "to": "runtime-installers",
+        "filter": [
+          "install-python310.ps1",
+          "install-qwen.ps1",
+          "install-cosyvoice2.ps1",
+          "install-musetalk.ps1",
+          "musetalk-constraints.txt",
+          "runtime-source-lock.json"
+        ]
+      },
+      {
+        "from": "../legal/capture-python-runtime-notices.py",
+        "to": "legal/capture-python-runtime-notices.py"
+      }
+    ],
+    "win": {
+      "icon": "build/icon.svg",
+      "target": ["nsis"],
+      "executableName": "BossAI Video Agent",
+      "artifactName": "BossAI-Video-Agent-${version}-Setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "BossAI Video Agent",
+      "uninstallDisplayName": "BossAI Video Agent"
+    }
+  }
+}

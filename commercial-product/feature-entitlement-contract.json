@@ -1,0 +1,27 @@
+{
+  "schema": "bossai.video-agent-feature-entitlement.v1",
+  "productId": "bossai-video-agent",
+  "authority": "bossai-headquarters-commerce",
+  "upstreamSchema": "bossai.commercial-entitlement.v1",
+  "policy": "Production paid execution fails closed unless the installation has a verified active commercial entitlement and the requested BossAI Video Agent feature code is explicitly present in entitlement.features.",
+  "features": [
+    {
+      "code": "video.rewrite",
+      "label": "AI 文案改写",
+      "endpoint": "/api/llm/rewrite"
+    },
+    {
+      "code": "video.tts",
+      "label": "授权声音配音",
+      "endpoint": "/api/tts/generate"
+    },
+    {
+      "code": "video.digital-human",
+      "label": "授权数字人口播",
+      "endpoint": "/api/commercial/digital-human/render"
+    }
+  ],
+  "publishingFeatureReserved": "video.publish",
+  "publishingEnabled": false,
+  "internalPreviewBypassesFeatureGate": true
+}

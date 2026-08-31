@@ -1,0 +1,156 @@
+{
+  "schema": "bossai.video-agent-runtime-license-inventory.v1",
+  "productId": "bossai-video-agent",
+  "generatedAt": "2026-08-29",
+  "policy": "Only components with documented commercial-use and redistribution terms may enter a customer build. Unknown rights fail closed.",
+  "components": [
+    {
+      "id": "python310",
+      "role": "runtime-support",
+      "commercialStatus": "approved-with-notice",
+      "license": "CPython PSF license plus bundled permissive dependency notices",
+      "source": "https://github.com/astral-sh/python-build-standalone/releases/tag/20260510",
+      "notes": "Pinned portable CPython 3.10.20 runtime. Installed side-by-side on the customer device without Windows installer registration or PATH mutation. Preserve the distribution LICENSE.txt and applicable dependency notices."
+    },
+    {
+      "id": "qwen2.5-7b-instruct",
+      "role": "local-llm",
+      "commercialStatus": "approved-with-notice",
+      "license": "Apache-2.0",
+      "source": "https://huggingface.co/Qwen/Qwen2.5-7B-Instruct",
+      "notes": "Official model repository declares Apache-2.0. Commercial build should source the model from the official repository or a traceable conversion and ship the Apache license/attribution."
+    },
+    {
+      "id": "llama.cpp",
+      "role": "local-llm-runtime",
+      "commercialStatus": "approved-with-notice",
+      "license": "MIT",
+      "source": "https://github.com/ggml-org/llama.cpp",
+      "notes": "Official repository declares MIT. Preserve the llama.cpp license and third-party notices for the exact build; CUDA-enabled builds also require separate NVIDIA runtime/EULA review."
+    },
+    {
+      "id": "cosyvoice2-0.5b",
+      "role": "tts",
+      "commercialStatus": "approved-with-notice",
+      "license": "Apache-2.0",
+      "source": "https://huggingface.co/FunAudioLLM/CosyVoice2-0.5B",
+      "notes": "Official model repository and code repository declare Apache-2.0. Do not redistribute unverified example/reference voices as customer defaults."
+    },
+    {
+      "id": "faster-whisper-large-v3",
+      "role": "asr",
+      "commercialStatus": "approved-with-notice",
+      "license": "MIT",
+      "source": "https://huggingface.co/Systran/faster-whisper-large-v3",
+      "notes": "The converted model repository declares MIT. Ship the applicable license and attribution."
+    },
+    {
+      "id": "ffmpeg",
+      "role": "media-rendering",
+      "commercialStatus": "conditional-build-audit-required",
+      "license": "LGPL-2.1-or-later by default; GPL-2.0-or-later when GPL components are enabled",
+      "source": "https://ffmpeg.org/legal.html",
+      "notes": "Do not classify a generic ffmpeg.exe as redistributable until its exact configure flags and linked libraries are captured. Commercial staging must preserve the matching license/source-offer obligations for the exact build."
+    },
+    {
+      "id": "chromium-electron-runtime",
+      "role": "desktop-browser-runtime",
+      "commercialStatus": "approved-via-electron-notice-bundle",
+      "license": "Chromium/Electron mixed open-source notices",
+      "source": "Electron packaged LICENSE.electron.txt and LICENSES.chromium.html",
+      "notes": "Use the Chromium runtime that ships with the selected Electron build and preserve Electron's generated Chromium third-party notice bundle. Do not redistribute the recovered product's bundled Chromium as a BossAI runtime."
+    },
+    {
+      "id": "patchright",
+      "role": "browser-automation",
+      "commercialStatus": "approved-with-notice-policy-review-required",
+      "license": "Apache-2.0",
+      "source": "https://github.com/Kaliiiiiiiiii-Vinyzu/patchright-python",
+      "notes": "Upstream documentation declares Apache-2.0. Preserve the license/NOTICE for the exact package and separately review platform terms and automation policy before enabling external publishing."
+    },
+    {
+      "id": "indextts",
+      "role": "optional-tts",
+      "commercialStatus": "conditional",
+      "license": "bilibili Model Use License Agreement",
+      "source": "https://github.com/index-tts/index-tts/blob/main/LICENSE",
+      "notes": "Redistribution requires preserving the license/copyright notices and imposing downstream compliance. Separate written licensing is required above the agreement's MAU/revenue thresholds. Voice cloning/commercial voice use also requires explicit rights from the voice owner. Keep optional until customer terms and notice flow are implemented."
+    },
+    {
+      "id": "musetalk",
+      "role": "digital-human-lipsync",
+      "commercialStatus": "planned-replacement-approved-with-notice",
+      "license": "MIT",
+      "source": "https://github.com/TMElyralab/MuseTalk",
+      "notes": "Chosen commercial replacement for the legacy unknown-rights digital-human engine. Official project states code has no academic/commercial restriction and trained models may be used commercially; bundled test data must not be reused commercially."
+    },
+    {
+      "id": "legacy-digital-human-engine",
+      "role": "digital-human-lipsync",
+      "commercialStatus": "blocked-do-not-distribute",
+      "license": "unknown",
+      "source": "local recovery package only",
+      "notes": "No project-level license or redistribution grant was found. Internal compatibility testing only. Must be replaced or separately licensed before customer distribution."
+    },
+    {
+      "id": "legacy-bgm-library",
+      "role": "background-music",
+      "commercialStatus": "blocked-do-not-distribute",
+      "license": "unknown",
+      "source": "local recovery package only",
+      "notes": "No per-track commercial redistribution evidence found. Replace with BossAI-owned/licensed tracks or customer-supplied music."
+    },
+    {
+      "id": "legacy-font-bundle",
+      "role": "subtitle-fonts",
+      "commercialStatus": "blocked-as-bundle",
+      "license": "mixed-or-unknown",
+      "source": "local recovery package only",
+      "notes": "Do not redistribute the whole legacy font folder. Commercial build should use OS fonts or explicitly sourced OFL/commercially licensed fonts with license files."
+    },
+    {
+      "id": "legacy-default-avatar",
+      "role": "default-digital-human-media",
+      "commercialStatus": "blocked-do-not-distribute",
+      "license": "unknown",
+      "source": "local recovery package only",
+      "notes": "Replace with BossAI-owned media or require customer upload/consent."
+    },
+    {
+      "id": "legacy-default-reference-voice",
+      "role": "default-voice-media",
+      "commercialStatus": "blocked-do-not-distribute",
+      "license": "unknown",
+      "source": "local recovery package only",
+      "notes": "Replace with BossAI-owned licensed voice assets or require customer-supplied authorized reference audio."
+    },
+    {
+      "id": "social-platform-automation",
+      "role": "publishing",
+      "commercialStatus": "reimplement-or-source-clean",
+      "license": "MIT claimed by upstream README; bundled license evidence incomplete",
+      "source": "legacy bundle contains README reference only",
+      "notes": "Prefer BossAI-owned platform adapters built from public platform/browser contracts. Do not redistribute the legacy vendor folder until an exact upstream commit and LICENSE are recorded."
+    },
+    {
+      "id": "cuda-nvidia-runtime",
+      "role": "gpu-runtime",
+      "commercialStatus": "requires-eula-review",
+      "license": "NVIDIA component licenses/EULA",
+      "source": "bundled runtime packages include NVIDIA license files",
+      "notes": "Commercial installer composition must comply with NVIDIA redistribution terms and include required license notices."
+    }
+  ],
+  "commercialDefaultStack": {
+    "llm": "qwen2.5-7b-instruct",
+    "tts": "cosyvoice2-0.5b",
+    "optionalAsr": "faster-whisper-large-v3",
+    "digitalHuman": "musetalk",
+    "optionalTts": "indextts",
+    "bgm": "bossai-owned-or-customer-supplied",
+    "fonts": "os-fonts-or-explicitly-licensed-fonts",
+    "avatar": "bossai-owned-or-customer-supplied",
+    "referenceVoice": "bossai-owned-or-customer-supplied"
+  },
+  "distributionReady": false
+}

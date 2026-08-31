@@ -1,0 +1,43 @@
+{
+  "schema": "bossai.video-agent-third-party-notices.v1",
+  "productId": "bossai-video-agent",
+  "notice": "This inventory is release metadata only. A customer installer must also carry the full upstream license texts and any required copyright/attribution notices for every component actually distributed.",
+  "components": [
+    {
+      "id": "python310",
+      "role": "runtime-support",
+      "license": "CPython PSF license plus bundled dependency notices",
+      "noticeRequired": true,
+      "redistributionStatus": "downloaded-from-pinned-redistributable-runtime-source-on-customer-device"
+    },
+    {
+      "id": "qwen2.5-7b-instruct",
+      "role": "local-llm",
+      "license": "Apache-2.0",
+      "noticeRequired": true,
+      "redistributionStatus": "approved-subject-to-license-notice"
+    },
+    {
+      "id": "cosyvoice2-0.5b",
+      "role": "tts",
+      "license": "Apache-2.0",
+      "noticeRequired": true,
+      "redistributionStatus": "approved-subject-to-license-notice"
+    },
+    {
+      "id": "faster-whisper-large-v3",
+      "role": "asr",
+      "license": "MIT",
+      "noticeRequired": true,
+      "redistributionStatus": "approved-subject-to-license-notice"
+    },
+    {
+      "id": "musetalk",
+      "role": "digital-human-lipsync",
+      "license": "MIT",
+      "noticeRequired": true,
+      "redistributionStatus": "approved-subject-to-license-notice",
+      "restriction": "Do not ship upstream test/demo people, voices or media as customer assets. Customer production requires authorized customer or BossAI-owned media."
+    }
+  ]
+}

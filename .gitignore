@@ -1,0 +1,82 @@
+# Python runtime caches
+__pycache__/
+*.py[cod]
+
+# Materialized development mirror is generated locally
+formal-dev-baseline/workspace/
+
+# Local test/runtime caches
+.pytest_cache/
+*.log
+*.pid
+*.tmp
+*marker*.json
+
+# Windows reserved-name artifact from shell probes
+NUL
+
+# Never publish local configuration, credentials, customer content, or runtime state.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.kdbx
+*token*.json
+*secret*.json
+*credential*.json
+*cookie*.json
+*session*.json
+*activation*.json
+*local.db
+*.sqlite
+*.sqlite3
+user_data/
+cookies/
+sessions/
+outputs/
+data/
+
+# Models, model caches, packaged runtimes, and generated binaries are not source.
+*.gguf
+*.safetensors
+*.ckpt
+*.pth
+*.pt
+*.onnx
+*.bin
+*.dll
+*.exe
+*.msi
+*.asar
+*.pak
+*.node
+*.blockmap
+commercial-product/desktop/dist/
+commercial-product/desktop/build/
+commercial-product/ui/dist/
+commercial-product/backend/__pycache__/
+
+# Keep the local recovery/forensics workspace private. It contains or references
+# legacy artifacts whose public redistribution rights are not established.
+/Atlas/
+/deltas/
+/formal-dev-baseline/
+/formal-reuse-baseline/
+/reconstructed-frontend/
+/electron-exact/
+/CODEX-*
+/BACKEND_FORMAL_OVERLAY.md
+/FORMAL_REUSE_BASELINE.md
+/FRONTEND_COMPONENT_MAP.md
+/PROVENANCE.md
+/recovery-status.json
+/verify-backend-recovery.py
+/extract-frontend.ps1
+/materialize-formal-source.ps1
+/RUN-RECOVERED.cmd
+/STOP-RECOVERED.cmd
+/CHECK-RECOVERED.cmd
+commercial-product/legal-drafts/

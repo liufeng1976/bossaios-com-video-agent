@@ -1,0 +1,9 @@
+fastapi>=0.115,<1
+uvicorn>=0.34,<1
+python-multipart>=0.0.20,<1
+
+# Model runtimes are installed or bundled separately so the customer package can
+# pin GPU-specific wheels and preserve their upstream license notices:
+# - llama-cpp-python for Qwen GGUF
+# - official CosyVoice2 environment
+# - official MuseTalk environment

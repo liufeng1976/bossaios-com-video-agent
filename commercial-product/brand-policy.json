@@ -1,0 +1,13 @@
+{
+  "schema": "bossai.video-agent-brand-policy.v1",
+  "productId": "bossai-video-agent",
+  "productName": "BossAI Video Agent",
+  "shortName": "BossAI Video",
+  "company": "BossAI",
+  "desktopAppId": "com.bossai.videoagent",
+  "installerPrefix": "BossAI-Video-Agent",
+  "customerFacingIdentityExclusive": true,
+  "legacyBrandAllowedInCustomerBuild": false,
+  "upstreamForensicReferencesAllowedInCustomerBuild": false,
+  "customerBuildMustPass": "verify-commercial-boundary.py"
+}
