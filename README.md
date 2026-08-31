@@ -1,4 +1,4 @@
-# AIAgent Recovered — safe public source scope
+# BossAI Video Agent — source-only public baseline
 
 This repository publishes the BossAI-owned commercial-product source layer from a local recovery workspace. It is deliberately a **source-only, safety-scoped release**, not a release of the original recovered application.
 
