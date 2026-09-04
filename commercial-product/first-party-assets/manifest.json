@@ -1,6 +1,6 @@
 {
   "schema": "bossai.video-agent-first-party-assets.v1",
-  "policy": "Only assets BossAI owns outright or holds a documented commercial redistribution licence for may be listed here. Every entry must name its rights holder, its licence and the acquisition record, and must match its pinned SHA-256. Assets recovered from the original AIAgent package are blocked-do-not-distribute in runtime-license-inventory.json and must never be added.",
+  "policy": "Only assets BossAI owns outright, or holds a documented commercial redistribution licence for, may be listed here. Every entry must name its rights holder, its licence and its acquisition record, and must match its pinned SHA-256. Entries that do not meet this bar are ignored by the product and rejected by verify-first-party-assets.py.",
   "reviewedBy": "",
   "reviewedAt": "",
   "assets": []

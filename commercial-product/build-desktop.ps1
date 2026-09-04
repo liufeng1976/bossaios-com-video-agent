@@ -62,6 +62,7 @@ try {
   Copy-Item -LiteralPath $uiDist -Destination (Join-Path $tempProduct 'ui') -Recurse
   Copy-Item -LiteralPath $backend -Destination $tempProduct -Recurse
   Copy-Item -LiteralPath (Join-Path $root 'runtime-installers') -Destination $tempProduct -Recurse
+  Copy-Item -LiteralPath (Join-Path $root 'first-party-assets') -Destination $tempProduct -Recurse
   Copy-Item -LiteralPath (Join-Path $root 'customer-product-metadata.json') -Destination $tempProduct
   Copy-Item -LiteralPath (Join-Path $root 'customer-third-party-notices.json') -Destination $tempProduct
   foreach ($document in $rootLegalDocuments) {
@@ -116,6 +117,32 @@ try {
   })
   if ($missingLegal.Count -gt 0) {
     throw "Packaged customer legal bundle is incomplete: $($missingLegal -join ', ')"
+  }
+
+  # Every runtime the install centre offers must ship its installer, or the
+  # component is simply uninstallable in the delivered product.
+  $unpackedInstallers = Join-Path $built 'win-unpacked\resources\runtime-installers'
+  $requiredInstallers = @(
+    'install-python310.ps1','install-qwen.ps1','install-cosyvoice2.ps1',
+    'install-musetalk.ps1','install-whisper.ps1',
+    'runtime-source-lock.json','whisper-windows-requirements.txt'
+  )
+  $missingInstallers = @($requiredInstallers | Where-Object {
+    -not (Test-Path -LiteralPath (Join-Path $unpackedInstallers $_))
+  })
+  if ($missingInstallers.Count -gt 0) {
+    throw "Packaged runtime installers are incomplete: $($missingInstallers -join ', ')"
+  }
+
+  # The manifest ships so the product can read the bundle. The developer
+  # documentation deliberately does not: it names the legacy product and the
+  # recovery package, which the customer distribution boundary scan forbids.
+  $unpackedAssets = Join-Path $built 'win-unpacked\resources\first-party-assets\manifest.json'
+  if (-not (Test-Path -LiteralPath $unpackedAssets)) {
+    throw 'Packaged first-party asset manifest is missing.'
+  }
+  if (Test-Path -LiteralPath (Join-Path $built 'win-unpacked\resources\first-party-assets\README.md')) {
+    throw 'First-party asset developer documentation must not ship in the customer build.'
   }
   if (Test-Path -LiteralPath $output) {
     Remove-Item -LiteralPath $output -Recurse -Force

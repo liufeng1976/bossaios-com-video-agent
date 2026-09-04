@@ -35,7 +35,9 @@
       {
         "from": "../ui/dist",
         "to": "ui",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       },
       {
         "from": "../backend",
@@ -95,21 +97,33 @@
           "install-qwen.ps1",
           "install-cosyvoice2.ps1",
           "install-musetalk.ps1",
+          "install-whisper.ps1",
           "migrate-runtime-storage.ps1",
           "musetalk-constraints.txt",
           "musetalk-windows-requirements.txt",
           "cosyvoice-windows-requirements.txt",
-          "runtime-source-lock.json"
+          "runtime-source-lock.json",
+          "whisper-windows-requirements.txt"
         ]
       },
       {
         "from": "../legal/capture-python-runtime-notices.py",
         "to": "legal/capture-python-runtime-notices.py"
+      },
+      {
+        "from": "../first-party-assets",
+        "to": "first-party-assets",
+        "filter": [
+          "**/*",
+          "!README.md"
+        ]
       }
     ],
     "win": {
       "icon": "build/icon.svg",
-      "target": ["nsis"],
+      "target": [
+        "nsis"
+      ],
       "executableName": "BossAI Video Agent",
       "artifactName": "BossAI-Video-Agent-${version}-Setup.${ext}"
     },
