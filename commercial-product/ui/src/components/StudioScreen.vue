@@ -203,7 +203,59 @@
 
     <article class="panel">
       <div class="panel-head">
-        <div><span class="step">06</span><h2>{{ tr('发布平台', 'Publishing') }}</h2></div>
+        <div><span class="step">06</span><h2>{{ tr('封面制作', 'Cover') }}</h2></div>
+        <span class="hint">{{ tr('取自你自己的成片画面', 'A frame from your own final video') }}</span>
+      </div>
+      <p v-if="!finalVideoUrl" class="runtime-note">{{ tr('请先在第 05 步生成成片，封面从成片画面中截取。', 'Produce the final video in step 05 first; the cover is captured from it.') }}</p>
+      <div class="cover-layout">
+        <div>
+          <div class="button-row">
+            <button class="secondary" :disabled="busy || !rewriteAllowed || !form.scriptText.trim()" @click="makeCoverTitle">
+              {{ busyAction === 'cover-title' ? tr('生成中…', 'Generating…') : tr('AI 生成封面标题', 'Generate cover title') }}
+            </button>
+          </div>
+          <label>
+            <span>{{ tr('封面主标题', 'Cover title') }}</span>
+            <input v-model="cover.coverTitle" maxlength="200" :placeholder="tr('例如：十年老店', 'e.g. Ten years in business')" />
+          </label>
+          <div class="grid two">
+            <label><span>{{ tr('取帧时间（秒）', 'Frame timestamp (s)') }}</span><input v-model.number="cover.timestampSeconds" type="number" min="0" step="0.5" /></label>
+            <label><span>{{ tr('字号', 'Size') }}</span><input v-model.number="cover.fontSize" type="number" min="24" max="240" /></label>
+            <label>
+              <span>{{ tr('位置', 'Position') }}</span>
+              <select v-model="cover.position">
+                <option v-for="[value, zh, en] in CAPTION_POSITIONS" :key="value" :value="value">{{ tr(zh, en) }}</option>
+              </select>
+            </label>
+            <label>
+              <span>{{ tr('字体', 'Font') }}</span>
+              <select v-model="cover.fontFile">
+                <option value="">{{ tr('自动选择', 'Automatic') }}</option>
+                <option v-for="font in fontLibrary" :key="font.fileName" :value="font.fileName">{{ font.displayName || font.fileName }}</option>
+              </select>
+            </label>
+            <label><span>{{ tr('文字颜色', 'Text color') }}</span><input v-model="cover.color" type="color" /></label>
+            <label><span>{{ tr('描边颜色', 'Stroke color') }}</span><input v-model="cover.strokeColor" type="color" /></label>
+          </div>
+          <div class="button-row">
+            <button class="primary" :disabled="busy || !finalVideoUrl || !composerReady" @click="makeCover">
+              {{ busyAction === 'cover' ? tr('正在生成封面…', 'Creating cover…') : coverUrl ? tr('重新生成封面', 'Regenerate cover') : tr('生成封面', 'Create cover') }}
+            </button>
+            <button class="secondary" :disabled="coverBusy || !coverUrl || !desktopCoverExportAvailable" @click="exportCover">
+              {{ coverBusy ? tr('正在导出…', 'Exporting…') : tr('导出 PNG', 'Export PNG') }}
+            </button>
+          </div>
+        </div>
+        <div class="cover-preview">
+          <img v-if="coverUrl" :src="apiUrl(coverUrl)" :alt="tr('封面预览', 'Cover preview')" />
+          <div v-else class="preview-placeholder">{{ tr('封面预览', 'Cover preview') }}</div>
+        </div>
+      </div>
+    </article>
+
+    <article class="panel">
+      <div class="panel-head">
+        <div><span class="step">07</span><h2>{{ tr('发布平台', 'Publishing') }}</h2></div>
         <span class="hint">{{ tr('自动发布继续 fail-closed', 'Automated publishing remains fail-closed') }}</span>
       </div>
       <div class="policy-card">
@@ -252,6 +304,7 @@ import {
   ttsAllowed,
 } from '../stores/session.js'
 import {
+  CAPTION_POSITIONS,
   PLATFORMS,
   VIDEO_TYPES,
   audioUrl,
@@ -260,12 +313,20 @@ import {
   avatarId,
   avatarRightsConfirmed,
   avatarUploading,
+  cover,
+  coverBusy,
+  coverUrl,
+  desktopCoverExportAvailable,
   digitalHumanUrl,
   exportBusy,
+  exportCover,
   exportFinalVideo,
   finalVideoUrl,
+  fontLibrary,
   form,
   hasEdits,
+  makeCover,
+  makeCoverTitle,
   makeDigitalHuman,
   makeTitle,
   makeVoice,

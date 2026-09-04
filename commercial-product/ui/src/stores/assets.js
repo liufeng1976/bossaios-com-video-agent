@@ -9,10 +9,14 @@ import { computed, reactive, ref } from 'vue'
 import {
   avatarFileUrl,
   deleteAvatar,
+  deleteMedia,
   deleteVoice,
   listAvatars,
+  listMedia,
   listVoices,
+  mediaFileUrl,
   renameAvatar,
+  renameMedia,
   renameVoice,
   voiceFileUrl,
 } from '../api.js'
@@ -21,6 +25,7 @@ import { error, message } from './ui.js'
 
 export const voices = ref([])
 export const avatars = ref([])
+export const media = ref([])
 export const assetsBusy = ref(false)
 
 /** Pending rename text, keyed by `${kind}:${id}`; absent means "not editing". */
@@ -54,6 +59,7 @@ function isBlockedDefaultVoice(item) {
 
 export const voiceCount = computed(() => voices.value.length)
 export const avatarCount = computed(() => avatars.value.length)
+export const mediaCount = computed(() => media.value.length)
 
 export function draftKey(kind, id) {
   return `${kind}:${id}`
@@ -75,11 +81,15 @@ export async function refreshAvatars() {
   avatars.value = normalizeList(await listAvatars())
 }
 
+export async function refreshMedia() {
+  media.value = normalizeList(await listMedia())
+}
+
 export async function refreshAssets() {
   assetsBusy.value = true
   try {
-    const [voiceResult, avatarResult] = await Promise.allSettled([refreshVoices(), refreshAvatars()])
-    if (voiceResult.status === 'rejected' && avatarResult.status === 'rejected') {
+    const results = await Promise.allSettled([refreshVoices(), refreshAvatars(), refreshMedia()])
+    if (results.every((result) => result.status === 'rejected')) {
       error.value = tr('无法读取本机素材库。', 'Unable to read the local asset library.')
     }
   } finally {
@@ -110,6 +120,10 @@ export function commitAvatarRename(id) {
   return applyRename('avatar', id, renameAvatar, refreshAvatars)
 }
 
+export function commitMediaRename(id) {
+  return applyRename('media', id, renameMedia, refreshMedia)
+}
+
 async function removeAsset(id, request, refresh, successText) {
   error.value = ''
   try {
@@ -129,4 +143,8 @@ export function removeAvatar(id) {
   return removeAsset(id, deleteAvatar, refreshAvatars, tr('授权人物视频已删除。', 'Authorized avatar deleted.'))
 }
 
-export { avatarFileUrl, voiceFileUrl }
+export function removeMedia(id) {
+  return removeAsset(id, deleteMedia, refreshMedia, tr('素材已删除。', 'Media item deleted.'))
+}
+
+export { avatarFileUrl, mediaFileUrl, voiceFileUrl }

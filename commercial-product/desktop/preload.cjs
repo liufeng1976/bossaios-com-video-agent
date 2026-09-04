@@ -19,5 +19,9 @@ contextBridge.exposeInMainWorld('bossaiDesktop', Object.freeze({
     fileUrl: String(payload?.fileUrl || ''),
     suggestedName: String(payload?.suggestedName || ''),
   }),
+  exportCoverImage: (payload) => ipcRenderer.invoke('bossai:export-cover-image', {
+    fileUrl: String(payload?.fileUrl || ''),
+    suggestedName: String(payload?.suggestedName || ''),
+  }),
   openLegalDocument: (documentId) => ipcRenderer.invoke('bossai:open-legal-document', String(documentId || '')),
 }))

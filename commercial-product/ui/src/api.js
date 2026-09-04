@@ -174,6 +174,45 @@ export async function generateTitle(payload) {
   })
 }
 
+/** Derive a short, thumbnail-readable cover line from the script. */
+export async function generateCoverTitle(payload) {
+  return requestJson('/api/llm/generate-cover-title', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function listMedia() {
+  return requestJson('/api/commercial/media/?page=1&pageSize=100')
+}
+
+export async function uploadMedia(file, displayName = '') {
+  return uploadMultipart('/api/commercial/media/upload', file, { displayName })
+}
+
+export async function renameMedia(mediaId, displayName) {
+  return requestJson(`/api/commercial/media/${encodeURIComponent(mediaId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ displayName }),
+  })
+}
+
+export async function deleteMedia(mediaId) {
+  return requestJson(`/api/commercial/media/${encodeURIComponent(mediaId)}`, { method: 'DELETE' })
+}
+
+export function mediaFileUrl(mediaId) {
+  return apiUrl(`/api/commercial/media/${encodeURIComponent(mediaId)}/file`)
+}
+
+/** Build a cover image from a frame of the finished video. */
+export async function createCover(payload) {
+  return requestJson('/api/commercial/video/cover', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
 /** POST one file as multipart/form-data and unwrap the BossAI response envelope. */
 export async function uploadMultipart(path, file, fields = {}) {
   const body = new FormData()

@@ -17,6 +17,9 @@
       <button :class="{ active: tab === 'avatar' }" @click="tab = 'avatar'">
         {{ tr('数字人管理', 'Avatars') }} <span class="count">{{ avatarCount }}</span>
       </button>
+      <button :class="{ active: tab === 'media' }" @click="tab = 'media'">
+        {{ tr('素材库', 'Media library') }} <span class="count">{{ mediaCount }}</span>
+      </button>
     </div>
 
     <article v-if="tab === 'voice'" class="account-card">
@@ -60,7 +63,7 @@
       </div>
     </article>
 
-    <article v-else class="account-card">
+    <article v-else-if="tab === 'avatar'" class="account-card">
       <div class="panel-head">
         <div><h2>{{ tr('已授权人物视频', 'Authorized avatar clips') }}</h2></div>
         <span class="hint">{{ tr('可预览、重命名、删除', 'Preview, rename or delete') }}</span>
@@ -99,6 +102,46 @@
       </div>
     </article>
 
+    <article v-else class="account-card">
+      <div class="panel-head">
+        <div><h2>{{ tr('画中画素材', 'Picture-in-picture media') }}</h2></div>
+        <span class="hint">{{ tr('图片与视频，用于画中画叠加', 'Images and clips used as video insets') }}</span>
+      </div>
+
+      <p v-if="!media.length" class="account-help">{{ tr('还没有任何素材。可在「AI 口播视频」第 05 步的画中画区域上传图片或视频；只上传你拥有或已获授权的素材。', 'No media yet. Upload images or clips from the picture-in-picture controls in step 05; use only media you own or are licensed to use.') }}</p>
+
+      <div v-else class="avatar-grid">
+        <div v-for="item in media" :key="assetId(item)" class="avatar-card">
+          <img v-if="item.kind === 'image'" class="avatar-thumb media-thumb" :src="mediaFileUrl(assetId(item))" :alt="assetName(item, '')" />
+          <video v-else class="avatar-thumb media-thumb" controls preload="metadata" :src="mediaFileUrl(assetId(item))"></video>
+          <div class="asset-identity">
+            <template v-if="isEditing('media', item)">
+              <input
+                v-model="renameDrafts[draftKey('media', assetId(item))]"
+                maxlength="100"
+                @keyup.enter="commitMediaRename(assetId(item))"
+                @keyup.escape="cancelRename('media', assetId(item))"
+              />
+            </template>
+            <template v-else>
+              <strong>{{ assetName(item, tr('本机素材', 'Local media')) }}</strong>
+              <span class="mono">{{ item.kind === 'image' ? tr('图片', 'Image') : tr('视频', 'Video') }} · {{ formatSize(item.sizeBytes) }}</span>
+            </template>
+          </div>
+          <div class="asset-actions">
+            <template v-if="isEditing('media', item)">
+              <button class="secondary" @click="commitMediaRename(assetId(item))">{{ tr('保存', 'Save') }}</button>
+              <button class="secondary" @click="cancelRename('media', assetId(item))">{{ tr('取消', 'Cancel') }}</button>
+            </template>
+            <template v-else>
+              <button class="secondary" @click="startRename('media', item)">{{ tr('重命名', 'Rename') }}</button>
+              <button class="secondary danger" @click="confirmRemove('media', item)">{{ tr('删除', 'Delete') }}</button>
+            </template>
+          </div>
+        </div>
+      </div>
+    </article>
+
     <div v-if="pendingRemoval" class="confirm-bar">
       <strong>{{ tr('确认删除？', 'Delete this asset?') }}</strong>
       <span>{{ pendingRemoval.name }} · {{ tr('删除后无法恢复。', 'This cannot be undone.') }}</span>
@@ -121,10 +164,15 @@ import {
   avatars,
   cancelRename,
   commitAvatarRename,
+  commitMediaRename,
   commitVoiceRename,
   draftKey,
+  media,
+  mediaCount,
+  mediaFileUrl,
   refreshAssets,
   removeAvatar,
+  removeMedia,
   removeVoice,
   renameDrafts,
   startRename,
@@ -157,7 +205,8 @@ async function performRemove() {
   const target = pendingRemoval.value
   pendingRemoval.value = null
   if (!target) return
-  await (target.kind === 'voice' ? removeVoice(target.id) : removeAvatar(target.id))
+  const remove = { voice: removeVoice, avatar: removeAvatar, media: removeMedia }[target.kind]
+  await remove(target.id)
   reconcileSelections()
 }
 

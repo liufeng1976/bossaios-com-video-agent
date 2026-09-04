@@ -4,10 +4,19 @@
  */
 import { computed, reactive, ref, watch } from 'vue'
 
-import { deleteBgm, generateTitle, uploadAvatarVideo, uploadBgm, uploadVoice } from '../api.js'
+import {
+  createCover,
+  deleteBgm,
+  generateCoverTitle,
+  generateTitle,
+  uploadAvatarVideo,
+  uploadBgm,
+  uploadMedia,
+  uploadVoice,
+} from '../api.js'
 import { videoCapabilities } from '../capabilities/video-capability-adapter.js'
 import { requestLanguage, tr } from '../i18n.js'
-import { assetId, avatars, refreshAvatars, refreshVoices, voices } from './assets.js'
+import { assetId, avatars, media, refreshAvatars, refreshMedia, refreshVoices, voices } from './assets.js'
 import { desktopExportAvailable, refreshVideoAssets, videoAssets } from './session.js'
 import { busyAction, error, message, run } from './ui.js'
 
@@ -30,6 +39,14 @@ export const PLATFORMS = Object.freeze([
   ['channels', '视频号', 'WeChat Channels'],
   ['xiaohongshu', '小红书', 'Xiaohongshu'],
   ['kuaishou', '快手', 'Kuaishou'],
+])
+
+export const PIP_CORNERS = Object.freeze([
+  ['top-left', '左上', 'Top left'],
+  ['top-right', '右上', 'Top right'],
+  ['bottom-left', '左下', 'Bottom left'],
+  ['bottom-right', '右下', 'Bottom right'],
+  ['center', '居中', 'Center'],
 ])
 
 export const CAPTION_POSITIONS = Object.freeze([
@@ -67,6 +84,15 @@ export const bgmFile = ref(null)
 export const bgmUploading = ref(false)
 export const exportBusy = ref(false)
 
+export const mediaFile = ref(null)
+export const mediaDisplayName = ref('')
+export const mediaUploading = ref(false)
+
+/** Cover image derived from a frame of the finished video. */
+export const coverUrl = ref('')
+export const coverDownloadName = ref('')
+export const coverBusy = ref(false)
+
 export const form = reactive({
   sourceText: '',
   scriptText: '',
@@ -100,8 +126,29 @@ export const edit = reactive({
   videoTitleFontSize: 56,
   videoTitleColor: '#ffffff',
   videoTitleStrokeColor: '#000000',
+  pipEnabled: false,
+  pipMediaId: '',
+  pipCorner: 'top-right',
+  pipScalePercent: 28,
+  pipMarginPercent: 4,
+  pipOpacity: 100,
+  pipStartSeconds: 0,
+  pipEndSeconds: 0,
 })
 
+/** Cover settings; the image always comes from the customer's own video. */
+export const cover = reactive({
+  coverTitle: '',
+  timestampSeconds: 1,
+  fontFile: '',
+  position: 'center',
+  fontSize: 96,
+  color: '#ffffff',
+  strokeColor: '#000000',
+  strokeWidth: 3,
+})
+
+export const mediaLibrary = computed(() => media.value)
 export const bgmLibrary = computed(() => videoAssets.value?.bgm || [])
 export const fontLibrary = computed(() => videoAssets.value?.fonts || [])
 
@@ -111,6 +158,7 @@ export const hasEdits = computed(
     Boolean(edit.subtitleEnabled && form.scriptText.trim()) ||
     Boolean(edit.videoTitleEnabled && edit.videoTitleText.trim()) ||
     Boolean(edit.bgmEnabled && edit.bgmFile) ||
+    Boolean(edit.pipEnabled && edit.pipMediaId) ||
     Number(edit.voiceMixVolume) !== 100,
 )
 
@@ -130,6 +178,8 @@ function invalidateFrom(stage) {
   if (stage === 'voice' || stage === 'avatar') digitalHumanUrl.value = ''
   finalVideoUrl.value = ''
   finalDownloadName.value = ''
+  coverUrl.value = ''
+  coverDownloadName.value = ''
   renderSummary.value = null
   renderProgress.value = 0
   publishPreparation.value = null
@@ -160,6 +210,10 @@ export function selectBgmFile(event) {
 export function reconcileSelections() {
   if (form.voiceId && !voices.value.some((item) => assetId(item) === form.voiceId)) form.voiceId = ''
   if (avatarId.value && !avatars.value.some((item) => assetId(item) === avatarId.value)) avatarId.value = ''
+  if (edit.pipMediaId && !media.value.some((item) => assetId(item) === edit.pipMediaId)) {
+    edit.pipMediaId = ''
+    edit.pipEnabled = false
+  }
 }
 
 export async function uploadAuthorizedVoice() {
@@ -345,6 +399,76 @@ export async function exportFinalVideo() {
     error.value = e?.message || tr('成片导出失败', 'Video export failed')
   } finally {
     exportBusy.value = false
+  }
+}
+
+export function selectMediaFile(event) {
+  const [file] = Array.from(event?.target?.files || [])
+  mediaFile.value = file || null
+}
+
+export async function uploadPictureInPictureMedia() {
+  if (!mediaFile.value) return
+  mediaUploading.value = true
+  error.value = ''
+  try {
+    const result = await uploadMedia(mediaFile.value, mediaDisplayName.value)
+    await refreshMedia()
+    edit.pipMediaId = assetId(result)
+    edit.pipEnabled = true
+    mediaFile.value = null
+    mediaDisplayName.value = ''
+    message.value = tr('素材已保存到本机素材库。', 'Media saved to the local asset library.')
+  } catch (e) {
+    error.value = e?.message || tr('素材上传失败', 'Media upload failed')
+  } finally {
+    mediaUploading.value = false
+  }
+}
+
+export async function makeCoverTitle() {
+  await run(async () => {
+    const result = await generateCoverTitle({ scriptText: form.scriptText, currentTitle: title.value })
+    cover.coverTitle = String(result?.coverTitle || '')
+    message.value = tr('封面标题已生成。', 'Cover title generated.')
+  }, 'cover-title').catch(() => {})
+}
+
+export async function makeCover() {
+  await run(async () => {
+    const result = await createCover({
+      sourceUrl: finalVideoUrl.value,
+      projectName: projectName.value,
+      ...cover,
+    })
+    coverUrl.value = String(result?.fileUrl || '')
+    coverDownloadName.value = String(result?.downloadName || 'BossAI-Video-cover.png')
+    message.value = tr('封面已生成，可继续调整时间点或标题重新生成。', 'Cover created. Adjust the timestamp or title and regenerate if needed.')
+  }, 'cover').catch(() => {})
+}
+
+export const desktopCoverExportAvailable = computed(() => Boolean(globalThis?.bossaiDesktop?.exportCoverImage))
+
+export async function exportCover() {
+  if (!desktopCoverExportAvailable.value || !coverUrl.value) return
+  coverBusy.value = true
+  error.value = ''
+  try {
+    const result = await globalThis.bossaiDesktop.exportCoverImage(
+      coverUrl.value,
+      coverDownloadName.value || 'BossAI-Video-cover.png',
+    )
+    if (result?.canceled) {
+      message.value = tr('已取消导出。', 'Export canceled.')
+    } else if (result?.exported) {
+      message.value = tr(`封面已导出：${result.filePath}`, `Cover exported: ${result.filePath}`)
+    } else {
+      throw new Error(result?.reason || tr('封面导出失败', 'Cover export failed'))
+    }
+  } catch (e) {
+    error.value = e?.message || tr('封面导出失败', 'Cover export failed')
+  } finally {
+    coverBusy.value = false
   }
 }
 

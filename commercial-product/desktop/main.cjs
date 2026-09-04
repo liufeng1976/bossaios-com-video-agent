@@ -147,16 +147,19 @@ function httpJson(method, pathname, { headers = {}, timeoutMs = 2500 } = {}) {
   })
 }
 
-function safeExportName(value) {
+function safeExportName(value, extension = '.mp4', fallback = 'BossAI-Video') {
   const name = String(value || '').replace(/[<>:\"/\\|?*\x00-\x1f]+/g, '-').replace(/\s+/g, ' ').trim().replace(/[. ]+$/g, '')
-  const stem = name.toLowerCase().endsWith('.mp4') ? name.slice(0, -4) : name
-  return `${stem || 'BossAI-Video'}.mp4`
+  const stem = name.toLowerCase().endsWith(extension) ? name.slice(0, -extension.length) : name
+  return `${stem || fallback}${extension}`
 }
 
-function downloadLocalFinalVideo(fileUrl, destination) {
+const FINAL_VIDEO_ROUTE = /^\/api\/commercial\/video\/final\/[0-9a-f]{32}\/file$/i
+const COVER_ROUTE = /^\/api\/commercial\/video\/cover\/[0-9a-f]{32}\/file$/i
+
+function downloadLocalArtifact(fileUrl, destination, allowedRoute) {
   const route = String(fileUrl || '').trim()
-  if (!/^\/api\/commercial\/video\/final\/[0-9a-f]{32}\/file$/i.test(route)) {
-    return Promise.reject(new Error('Only BossAI final-video artifacts can be exported.'))
+  if (!allowedRoute.test(route)) {
+    return Promise.reject(new Error('Only BossAI generated artifacts can be exported.'))
   }
   const target = path.resolve(destination)
   const partial = `${target}.part`
@@ -170,7 +173,7 @@ function downloadLocalFinalVideo(fileUrl, destination) {
     const request = http.get({ host: API_HOST, port: API_PORT, path: route, timeout: 30_000 }, (response) => {
       if (response.statusCode !== 200) {
         response.resume()
-        cleanup(new Error(`BossAI final-video export failed with HTTP ${response.statusCode || 0}.`))
+        cleanup(new Error(`BossAI export failed with HTTP ${response.statusCode || 0}.`))
         return
       }
       response.pipe(output)
@@ -355,7 +358,7 @@ ipcMain.handle('bossai:open-upgrade', async () => {
 ipcMain.handle('bossai:export-final-video', async (_event, payload = {}) => {
   const fileUrl = String(payload?.fileUrl || '').trim()
   const suggestedName = safeExportName(payload?.suggestedName)
-  if (!/^\/api\/commercial\/video\/final\/[0-9a-f]{32}\/file$/i.test(fileUrl)) {
+  if (!FINAL_VIDEO_ROUTE.test(fileUrl)) {
     return { exported: false, canceled: false, reason: 'invalid-final-video-artifact' }
   }
   const result = await dialog.showSaveDialog({
@@ -366,7 +369,27 @@ ipcMain.handle('bossai:export-final-video', async (_event, payload = {}) => {
   })
   if (result.canceled || !result.filePath) return { exported: false, canceled: true }
   try {
-    const filePath = await downloadLocalFinalVideo(fileUrl, result.filePath)
+    const filePath = await downloadLocalArtifact(fileUrl, result.filePath, FINAL_VIDEO_ROUTE)
+    return { exported: true, canceled: false, filePath }
+  } catch (error) {
+    return { exported: false, canceled: false, reason: error?.message || String(error) }
+  }
+})
+ipcMain.handle('bossai:export-cover-image', async (_event, payload = {}) => {
+  const fileUrl = String(payload?.fileUrl || '').trim()
+  const suggestedName = safeExportName(payload?.suggestedName, '.png', 'BossAI-Video-cover')
+  if (!COVER_ROUTE.test(fileUrl)) {
+    return { exported: false, canceled: false, reason: 'invalid-cover-artifact' }
+  }
+  const result = await dialog.showSaveDialog({
+    title: '导出 BossAI 封面',
+    defaultPath: path.join(app.getPath('pictures'), suggestedName),
+    buttonLabel: '导出 PNG',
+    filters: [{ name: 'PNG Image', extensions: ['png'] }],
+  })
+  if (result.canceled || !result.filePath) return { exported: false, canceled: true }
+  try {
+    const filePath = await downloadLocalArtifact(fileUrl, result.filePath, COVER_ROUTE)
     return { exported: true, canceled: false, filePath }
   } catch (error) {
     return { exported: false, canceled: false, reason: error?.message || String(error) }

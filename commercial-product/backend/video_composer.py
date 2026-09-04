@@ -33,7 +33,20 @@ from typing import Any, Callable, Sequence
 
 AUDIO_SUFFIXES = frozenset({".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg"})
 FONT_SUFFIXES = frozenset({".ttf", ".otf", ".ttc"})
+IMAGE_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".webp", ".bmp"})
+VIDEO_SUFFIXES = frozenset({".mp4", ".mov", ".webm", ".mkv"})
+MEDIA_SUFFIXES = IMAGE_SUFFIXES | VIDEO_SUFFIXES
 MAX_BGM_BYTES = 64 * 1024 * 1024
+MAX_MEDIA_BYTES = 512 * 1024 * 1024
+
+# Inset placement, expressed against the overlay filter's main/overlay sizes.
+_PIP_CORNERS = {
+    "top-left": ("{m}", "{m}"),
+    "top-right": ("main_w-overlay_w-{m}", "{m}"),
+    "bottom-left": ("{m}", "main_h-overlay_h-{m}"),
+    "bottom-right": ("main_w-overlay_w-{m}", "main_h-overlay_h-{m}"),
+    "center": ("(main_w-overlay_w)/2", "(main_h-overlay_h)/2"),
+}
 
 SENTENCE_END = "。！？!?；;\n\r"
 SOFT_BREAK = "，,、：:—- "
@@ -91,6 +104,42 @@ class AudioMix:
     bgm_path: Path | None = None
     bgm_volume: int = 13
     voice_volume: int = 100
+
+
+@dataclass(frozen=True)
+class PictureInPicture:
+    """A customer-supplied image or clip inset over the main video.
+
+    ``scale_percent`` and ``margin_percent`` are both measured against the
+    output frame width, not against the supplied asset, so the same settings
+    produce the same on-screen result for any source resolution.
+    """
+
+    media_path: Path | None = None
+    corner: str = "top-right"
+    scale_percent: int = 28
+    margin_percent: int = 4
+    opacity: int = 100
+    start: float = 0.0
+    end: float = 0.0  # 0 means "until the end of the video"
+
+    @property
+    def enabled(self) -> bool:
+        return self.media_path is not None and self.media_path.is_file()
+
+
+@dataclass(frozen=True)
+class CoverStyle:
+    """Text burned onto an exported cover image."""
+
+    text: str = ""
+    font_file: str = ""
+    position: str = "center"
+    font_size: int = 96
+    color: str = "#ffffff"
+    stroke_color: str = "#000000"
+    stroke_width: float = 3.0
+    line_chars: int = 9
 
 
 def _no_window_kwargs() -> dict[str, Any]:
@@ -196,6 +245,40 @@ def probe_duration(path: Path) -> float:
         return max(0.0, float((result.stdout or "").strip()))
     except ValueError:
         return 0.0
+
+
+def probe_video_size(path: Path) -> tuple[int, int]:
+    """Return the video frame size in pixels, or (0, 0) when it cannot be read."""
+    ffprobe = ffprobe_executable()
+    if not ffprobe:
+        return 0, 0
+    try:
+        result = subprocess.run(
+            [
+                ffprobe,
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream=width,height",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                str(path),
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=60,
+            **_no_window_kwargs(),
+        )
+    except (OSError, subprocess.SubprocessError):
+        return 0, 0
+    values = [line.strip() for line in (result.stdout or "").splitlines() if line.strip().isdigit()]
+    if len(values) < 2:
+        return 0, 0
+    return int(values[0]), int(values[1])
 
 
 def _display_width(text: str) -> int:
@@ -496,6 +579,7 @@ def compose(
     subtitle: SubtitleStyle | None = None,
     title: TitleStyle | None = None,
     audio: AudioMix | None = None,
+    pip: PictureInPicture | None = None,
     asset_font_dir: Path | None = None,
     on_progress: Callable[[int, str], None] | None = None,
 ) -> dict[str, Any]:
@@ -507,6 +591,7 @@ def compose(
     subtitle = subtitle or SubtitleStyle(enabled=False)
     title = title or TitleStyle(enabled=False)
     audio = audio or AudioMix()
+    pip = pip or PictureInPicture()
 
     ffmpeg = ffmpeg_executable()
     if not ffmpeg:
@@ -515,6 +600,7 @@ def compose(
         )
 
     duration = probe_duration(source_video)
+    frame_width, _frame_height = probe_video_size(source_video)
     segments: list[Segment] = []
     if subtitle.enabled:
         segments = build_segments(script_text, duration, subtitle.line_chars)
@@ -535,27 +621,80 @@ def compose(
     bgm_gain = _volume(audio.bgm_volume)
 
     command: list[str] = [ffmpeg, "-hide_banner", "-nostdin", "-y", "-i", str(source_video)]
+    next_input = 1
+
+    pip_index = -1
+    pip_width_px = 0
+    if pip is not None and pip.enabled:
+        # The inset is sized against the *output* frame, never against the
+        # customer's own asset, so the same percentage looks the same on screen
+        # whether they supplied a 100px icon or a 4K logo.
+        if frame_width <= 0:
+            raise CompositionError(
+                "The source video resolution could not be read, so the picture-in-picture size cannot be determined."
+            )
+        base_width = frame_width - (frame_width % 2)
+        scale = max(5, min(100, int(pip.scale_percent)))
+        pip_width_px = max(2, min(base_width, round(base_width * scale / 100)))
+        pip_width_px -= pip_width_px % 2
+        # A still image is looped into a stream; a clip repeats so a short inset
+        # still covers the whole video. `-shortest` bounds the result either way.
+        if pip.media_path.suffix.lower() in IMAGE_SUFFIXES:
+            command += ["-loop", "1", "-i", str(pip.media_path)]
+        else:
+            command += ["-stream_loop", "-1", "-i", str(pip.media_path)]
+        pip_index = next_input
+        next_input += 1
+
+    bgm_index = -1
     if bgm_path is not None:
         # Loop the music so a short track still covers the whole clip.
         command += ["-stream_loop", "-1", "-i", str(bgm_path)]
+        bgm_index = next_input
+        next_input += 1
 
     video_chain = ",".join(filters)
-    if bgm_path is not None:
-        # Everything goes through one filter_complex so the burned-in video and
-        # the mixed audio are mapped explicitly and unambiguously.
-        graph = (
-            f"[0:v]{video_chain}[vout];" if video_chain else "[0:v]null[vout];"
-        ) + (
+    graph_parts: list[str] = []
+
+    if pip_index >= 0:
+        # The inset goes under the text so subtitles are never obscured by it.
+        margin = max(0, min(40, int(pip.margin_percent)))
+        opacity = max(1, min(100, int(pip.opacity))) / 100.0
+        x_expr, y_expr = _PIP_CORNERS.get(pip.corner, _PIP_CORNERS["top-right"])
+        margin_expr = f"main_w*{margin / 100:.4f}"
+        overlay_args = [
+            f"x={x_expr.format(m=margin_expr)}",
+            f"y={y_expr.format(m=margin_expr)}",
+        ]
+        if pip.start > 0 or pip.end > 0:
+            end = pip.end if pip.end > 0 else max(duration, pip.start + 1)
+            overlay_args.append(f"enable='between(t,{pip.start:.3f},{end:.3f})'")
+        graph_parts.append("[0:v]scale=trunc(iw/2)*2:trunc(ih/2)*2[base]")
+        graph_parts.append(
+            f"[{pip_index}:v]scale={pip_width_px}:-2,format=rgba,"
+            f"colorchannelmixer=aa={opacity:.3f}[pip]"
+        )
+        graph_parts.append("[base][pip]overlay=" + ":".join(overlay_args) + "[ov]")
+        graph_parts.append(f"[ov]{video_chain}[vout]" if video_chain else "[ov]null[vout]")
+    elif video_chain or bgm_index >= 0:
+        graph_parts.append(f"[0:v]{video_chain}[vout]" if video_chain else "[0:v]null[vout]")
+
+    if bgm_index >= 0:
+        graph_parts.append(
             f"[0:a]volume={voice_gain:.3f}[voice];"
-            f"[1:a]volume={bgm_gain:.3f}[music];"
+            f"[{bgm_index}:a]volume={bgm_gain:.3f}[music];"
             "[voice][music]amix=inputs=2:duration=first:dropout_transition=0[aout]"
         )
-        command += ["-filter_complex", graph, "-map", "[vout]", "-map", "[aout]", "-shortest"]
-    else:
-        if video_chain:
-            command += ["-vf", video_chain]
-        if voice_gain != 1.0:
+
+    if graph_parts:
+        command += ["-filter_complex", ";".join(graph_parts), "-map", "[vout]"]
+        command += ["-map", "[aout]" if bgm_index >= 0 else "0:a?"]
+        if bgm_index >= 0 or pip_index >= 0:
+            command += ["-shortest"]
+        if bgm_index < 0 and voice_gain != 1.0:
             command += ["-af", f"volume={voice_gain:.3f}"]
+    elif voice_gain != 1.0:
+        command += ["-af", f"volume={voice_gain:.3f}"]
 
     command += [
         "-c:v",
@@ -590,6 +729,8 @@ def compose(
         "subtitleBurned": bool(subtitle.enabled and segments),
         "titleBurned": bool(title.enabled and title.text.strip() and title_font is not None),
         "bgmMixed": bgm_path is not None,
+        "pipOverlaid": bool(pip.enabled),
+        "pipWidthPx": pip_width_px,
         "reEncoded": True,
     }
 
@@ -646,6 +787,72 @@ def _ffmpeg_error(stderr: str) -> str:
         if any(token in lowered for token in ("error", "invalid", "no such file", "unable", "failed")):
             return f"FFmpeg failed: {line}"
     return "FFmpeg failed: " + (lines[-1] if lines else "unknown error")
+
+
+def create_cover(
+    *,
+    source_video: Path,
+    output_path: Path,
+    work_dir: Path,
+    timestamp: float = 0.0,
+    style: CoverStyle | None = None,
+    asset_font_dir: Path | None = None,
+) -> dict[str, Any]:
+    """Grab one frame from the finished video and burn the cover title onto it.
+
+    The cover comes from the customer's own rendered video, so no stock imagery
+    and no background-removal model is involved.
+    """
+    style = style or CoverStyle()
+    ffmpeg = ffmpeg_executable()
+    if not ffmpeg:
+        raise CompositionError(
+            "FFmpeg is not available on this machine. Install the FFmpeg runtime from Settings before creating a cover."
+        )
+    if not source_video.is_file():
+        raise CompositionError("The source video for the cover is missing.")
+
+    duration = probe_duration(source_video)
+    seek = max(0.0, min(float(timestamp), max(0.0, duration - 0.05)))
+
+    work_dir.mkdir(parents=True, exist_ok=True)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    filters: list[str] = []
+    text = style.text.strip()
+    font = resolve_font(style.font_file, asset_font_dir) or default_font(asset_font_dir)
+    if text:
+        if font is None:
+            raise CompositionError("No usable font was found for the cover title.")
+        font_name = "cover-font" + font.suffix.lower()
+        shutil.copyfile(font, work_dir / font_name)
+        (work_dir / "cover.txt").write_text(_wrap(text, style.line_chars), encoding="utf-8")
+        filters.append(
+            _drawtext(
+                text_file="cover.txt",
+                font_file=font_name,
+                font_size=style.font_size,
+                color=_hex_color(style.color, "#ffffff"),
+                stroke_color=_hex_color(style.stroke_color, "#000000"),
+                stroke_width=style.stroke_width,
+                y_expr=_position_expr(style.position, "center"),
+            )
+        )
+
+    command = [ffmpeg, "-hide_banner", "-nostdin", "-y", "-ss", f"{seek:.3f}", "-i", str(source_video)]
+    if filters:
+        command += ["-vf", ",".join(filters)]
+    command += ["-frames:v", "1", "-update", "1", str(output_path)]
+
+    _run_with_progress(command, work_dir, 0.0, None)
+
+    if not output_path.is_file() or output_path.stat().st_size == 0:
+        raise CompositionError("FFmpeg finished without producing a cover image.")
+    return {
+        "timestampSeconds": round(seek, 3),
+        "titleBurned": bool(text),
+        "sizeBytes": output_path.stat().st_size,
+    }
 
 
 def main() -> int:

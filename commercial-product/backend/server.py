@@ -12,7 +12,7 @@ import threading
 import time
 import uuid
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -47,6 +47,8 @@ AVATAR_ID_RE = re.compile(r"^[0-9a-f]{32}$", re.I)
 TTS_ID_RE = re.compile(r"^[0-9a-f]{32}$", re.I)
 JOB_ID_RE = re.compile(r"^[0-9a-f]{32}$", re.I)
 FINAL_VIDEO_ID_RE = re.compile(r"^[0-9a-f]{32}$", re.I)
+MEDIA_ID_RE = re.compile(r"^[0-9a-f]{32}$", re.I)
+COVER_ID_RE = re.compile(r"^[0-9a-f]{32}$", re.I)
 ALLOWED_AVATAR_SUFFIXES = {".mp4", ".mov", ".webm", ".mkv"}
 MAX_VOICE_BYTES = 128 * 1024 * 1024
 MAX_AVATAR_BYTES = 2 * 1024 * 1024 * 1024
@@ -89,6 +91,10 @@ class TtsBody(BaseModel):
     language: str = Field(default="zh", max_length=32)
 
 
+HEX_COLOR = r"^#?[0-9a-fA-F]{6}$"
+CaptionPosition = Literal["top", "center", "bottom"]
+
+
 class TitleBody(BaseModel):
     scriptText: str = Field(..., min_length=1, max_length=20000)
     publishPlatform: Literal["douyin", "channels", "xiaohongshu", "kuaishou"] = "douyin"
@@ -97,6 +103,24 @@ class TitleBody(BaseModel):
 
 class RenameBody(BaseModel):
     displayName: str = Field(..., min_length=1, max_length=100)
+
+
+class CoverTitleBody(BaseModel):
+    scriptText: str = Field(..., min_length=1, max_length=20000)
+    currentTitle: str = Field(default="", max_length=200)
+
+
+class CoverBody(BaseModel):
+    sourceUrl: str = Field(..., min_length=1, max_length=4096)
+    projectName: str | None = Field(default=None, max_length=120)
+    timestampSeconds: float = Field(default=0.0, ge=0, le=36000)
+    coverTitle: str = Field(default="", max_length=200)
+    fontFile: str = Field(default="", max_length=255)
+    position: CaptionPosition = "center"
+    fontSize: int = Field(default=96, ge=24, le=240)
+    color: str = Field(default="#ffffff", pattern=HEX_COLOR)
+    strokeColor: str = Field(default="#000000", pattern=HEX_COLOR)
+    strokeWidth: float = Field(default=3.0, ge=0, le=12)
 
 
 class DigitalHumanBody(BaseModel):
@@ -108,10 +132,6 @@ class DigitalHumanBody(BaseModel):
 class FinalVideoBody(BaseModel):
     sourceUrl: str = Field(..., min_length=1, max_length=4096)
     projectName: str | None = Field(default=None, max_length=120)
-
-
-HEX_COLOR = r"^#?[0-9a-fA-F]{6}$"
-CaptionPosition = Literal["top", "center", "bottom"]
 
 
 class VideoRenderBody(BaseModel):
@@ -144,6 +164,15 @@ class VideoRenderBody(BaseModel):
     videoTitleFontSize: int = Field(default=60, ge=24, le=120)
     videoTitleColor: str = Field(default="#ffffff", pattern=HEX_COLOR)
     videoTitleStrokeColor: str = Field(default="#000000", pattern=HEX_COLOR)
+
+    pipEnabled: bool = False
+    pipMediaId: str = Field(default="", max_length=32)
+    pipCorner: Literal["top-left", "top-right", "bottom-left", "bottom-right", "center"] = "top-right"
+    pipScalePercent: int = Field(default=28, ge=5, le=100)
+    pipMarginPercent: int = Field(default=4, ge=0, le=40)
+    pipOpacity: int = Field(default=100, ge=10, le=100)
+    pipStartSeconds: float = Field(default=0.0, ge=0, le=36000)
+    pipEndSeconds: float = Field(default=0.0, ge=0, le=36000)
 
 
 class PublishPrepareBody(BaseModel):
@@ -1424,7 +1453,7 @@ def llm_generate_title(body: TitleBody):
 
 
 @app.get("/api/voices/")
-def list_voices(page: int = Query(default=1, ge=1), pageSize: int = Query(default=100, ge=1, le=500)):
+def list_voices(page: Annotated[int, Query(ge=1)] = 1, pageSize: Annotated[int, Query(ge=1, le=500)] = 100):
     items: list[dict[str, Any]] = []
     for meta_path in sorted(_dir("voices").glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
         try:
@@ -1521,7 +1550,7 @@ def _avatar_summary(path: Path) -> dict[str, Any]:
 
 
 @app.get("/api/commercial/avatars/")
-def list_avatars(page: int = Query(default=1, ge=1), pageSize: int = Query(default=100, ge=1, le=500)):
+def list_avatars(page: Annotated[int, Query(ge=1)] = 1, pageSize: Annotated[int, Query(ge=1, le=500)] = 100):
     """List the authorized avatar clips stored on this machine."""
     candidates = [
         path
@@ -1914,6 +1943,15 @@ def render_final_video(body: VideoRenderBody):
         bgm_volume=body.bgmVolume,
         voice_volume=body.voiceMixVolume,
     )
+    pip = video_composer.PictureInPicture(
+        media_path=_resolve_media(body.pipMediaId) if body.pipEnabled and body.pipMediaId else None,
+        corner=body.pipCorner,
+        scale_percent=body.pipScalePercent,
+        margin_percent=body.pipMarginPercent,
+        opacity=body.pipOpacity,
+        start=body.pipStartSeconds,
+        end=body.pipEndSeconds,
+    )
 
     job_id = uuid.uuid4().hex
     _set_job(_VIDEO_JOBS, job_id, id=job_id, status="queued", progress=0, message="BossAI final video queued")
@@ -1929,6 +1967,7 @@ def render_final_video(body: VideoRenderBody):
                 subtitle=subtitle,
                 title=title,
                 audio=audio,
+                pip=pip,
                 asset_font_dir=_asset_font_dir(),
                 on_progress=lambda percent, note: _set_job(
                     _VIDEO_JOBS, job_id, status="running", progress=max(5, percent), message=note
@@ -1966,6 +2005,207 @@ def final_video_job(job_id: str):
     if job is None:
         raise HTTPException(404, "BossAI final video job not found.")
     return {"success": True, "data": job}
+
+
+def _media_dir() -> Path:
+    return _dir("assets") / "media"
+
+
+def _media_meta_path(media_id: str) -> Path:
+    return _media_dir() / f"{media_id}.json"
+
+
+def _resolve_media(media_id: str) -> Path:
+    """Resolve a media-library item to its file inside the asset directory."""
+    if not MEDIA_ID_RE.fullmatch(str(media_id or "")):
+        raise HTTPException(400, "Invalid BossAI media ID.")
+    _media_dir().mkdir(parents=True, exist_ok=True)
+    matches = [
+        path
+        for path in _media_dir().glob(f"{media_id}.*")
+        if path.suffix.lower() in video_composer.MEDIA_SUFFIXES
+    ]
+    if len(matches) != 1:
+        raise HTTPException(404, "Media library item not found.")
+    return matches[0].resolve()
+
+
+def _media_summary(path: Path) -> dict[str, Any]:
+    media_id = path.stem
+    try:
+        meta = json.loads(_media_meta_path(media_id).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        meta = {}
+    suffix = path.suffix.lower()
+    return {
+        "id": media_id,
+        "displayName": str(meta.get("displayName") or "").strip() or "本机素材",
+        "kind": "image" if suffix in video_composer.IMAGE_SUFFIXES else "video",
+        "sizeBytes": path.stat().st_size,
+        "fileUrl": f"/api/commercial/media/{media_id}/file",
+    }
+
+
+@app.get("/api/commercial/media/")
+def list_media(page: Annotated[int, Query(ge=1)] = 1, pageSize: Annotated[int, Query(ge=1, le=500)] = 100):
+    """List the picture-in-picture media the customer added themselves."""
+    _media_dir().mkdir(parents=True, exist_ok=True)
+    candidates = [
+        path
+        for path in _media_dir().iterdir()
+        if path.is_file() and path.suffix.lower() in video_composer.MEDIA_SUFFIXES and MEDIA_ID_RE.fullmatch(path.stem)
+    ]
+    candidates.sort(key=lambda path: path.stat().st_mtime, reverse=True)
+    items = [_media_summary(path) for path in candidates]
+    start = (page - 1) * pageSize
+    return {"success": True, "data": {"items": items[start : start + pageSize], "total": len(items)}}
+
+
+@app.post("/api/commercial/media/upload")
+async def upload_media(file: UploadFile = File(...), displayName: str = Form(default="")):
+    """Store a customer-provided image or clip for picture-in-picture use."""
+    original = Path(file.filename or "media.png").name
+    suffix = Path(original).suffix.lower()
+    if suffix not in video_composer.MEDIA_SUFFIXES:
+        raise HTTPException(400, "Media must be PNG, JPG, WEBP, BMP, MP4, MOV, WEBM or MKV.")
+    _media_dir().mkdir(parents=True, exist_ok=True)
+    media_id = uuid.uuid4().hex
+    target = (_media_dir() / f"{media_id}{suffix}").resolve()
+    size = 0
+    try:
+        with target.open("wb") as handle:
+            while True:
+                chunk = await file.read(8 * 1024 * 1024)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > video_composer.MAX_MEDIA_BYTES:
+                    raise HTTPException(413, "Media exceeds the 512 MiB limit.")
+                handle.write(chunk)
+    except Exception:
+        target.unlink(missing_ok=True)
+        raise
+    finally:
+        await file.close()
+    if size < 64:
+        target.unlink(missing_ok=True)
+        raise HTTPException(400, "Media file is empty or invalid.")
+    label = str(displayName or Path(original).stem).strip()[:100] or "本机素材"
+    _media_meta_path(media_id).write_text(
+        json.dumps({"id": media_id, "displayName": label, "sizeBytes": size, "suffix": suffix}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    return {"success": True, "data": _media_summary(target)}
+
+
+@app.get("/api/commercial/media/{media_id}/file")
+def media_file(media_id: str):
+    path = _resolve_media(media_id)
+    media_types = {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".webp": "image/webp",
+        ".bmp": "image/bmp",
+        ".mp4": "video/mp4",
+        ".mov": "video/quicktime",
+        ".webm": "video/webm",
+        ".mkv": "video/x-matroska",
+    }
+    return FileResponse(path, media_type=media_types.get(path.suffix.lower(), "application/octet-stream"), filename=path.name)
+
+
+@app.patch("/api/commercial/media/{media_id}")
+def rename_media(media_id: str, body: RenameBody):
+    path = _resolve_media(media_id)
+    _media_meta_path(media_id).write_text(
+        json.dumps(
+            {"id": media_id, "displayName": body.displayName.strip()[:100], "suffix": path.suffix.lower()},
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    return {"success": True, "data": {"id": media_id, "displayName": body.displayName.strip()[:100]}}
+
+
+@app.delete("/api/commercial/media/{media_id}")
+def delete_media(media_id: str):
+    path = _resolve_media(media_id)
+    path.unlink(missing_ok=True)
+    _media_meta_path(media_id).unlink(missing_ok=True)
+    return {"success": True, "data": {"id": media_id, "removed": True}}
+
+
+@app.post("/api/llm/generate-cover-title")
+def llm_generate_cover_title(body: CoverTitleBody):
+    """Derive a short, thumbnail-readable cover line from the script."""
+    require_execution(FEATURE_REWRITE)
+    try:
+        result = qwen_adapter.generate_cover_title(body.scriptText, body.currentTitle)
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(503, str(exc)) from exc
+    return {"success": True, "data": {**result, "engine": qwen_adapter.ENGINE_ID}}
+
+
+def _cover_path(cover_id: str) -> Path:
+    if not COVER_ID_RE.fullmatch(str(cover_id or "")):
+        raise HTTPException(400, "Invalid BossAI cover ID.")
+    path = (_dir("covers") / f"{cover_id}.png").resolve()
+    if not path.is_file():
+        raise HTTPException(404, "BossAI cover image not found.")
+    return path
+
+
+@app.post("/api/commercial/video/cover")
+def create_video_cover(body: CoverBody):
+    """Build a cover image from a frame of the customer's own final video."""
+    source = _final_video_url_path(body.sourceUrl)
+    setup = video_composer.inspect_setup()
+    if not setup.get("ready"):
+        raise HTTPException(503, "Local video composition runtime is not ready: " + ", ".join(setup.get("missing") or []))
+
+    cover_id = uuid.uuid4().hex
+    output = (_dir("covers") / f"{cover_id}.png").resolve()
+    work_dir = (_dir("render-work") / f"cover-{cover_id}").resolve()
+    try:
+        summary = video_composer.create_cover(
+            source_video=source,
+            output_path=output,
+            work_dir=work_dir,
+            timestamp=body.timestampSeconds,
+            style=video_composer.CoverStyle(
+                text=body.coverTitle,
+                font_file=body.fontFile,
+                position=body.position,
+                font_size=body.fontSize,
+                color=body.color,
+                stroke_color=body.strokeColor,
+                stroke_width=body.strokeWidth,
+            ),
+            asset_font_dir=_asset_font_dir(),
+        )
+    except video_composer.CompositionError as exc:
+        output.unlink(missing_ok=True)
+        raise HTTPException(503, str(exc)) from exc
+    finally:
+        shutil.rmtree(work_dir, ignore_errors=True)
+
+    return {
+        "success": True,
+        "data": {
+            "schema": "bossai.video-agent-cover.v1",
+            "coverId": cover_id,
+            "fileUrl": f"/api/commercial/video/cover/{cover_id}/file",
+            "downloadName": f"{_safe_project_name(body.projectName)}-cover.png",
+            **summary,
+        },
+    }
+
+
+@app.get("/api/commercial/video/cover/{cover_id}/file")
+def video_cover_file(cover_id: str):
+    path = _cover_path(cover_id)
+    return FileResponse(path, media_type="image/png", filename=f"bossai-cover-{cover_id}.png")
 
 
 @app.get("/api/commercial/video/final/{final_video_id}/file")

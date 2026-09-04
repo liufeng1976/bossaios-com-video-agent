@@ -22,6 +22,10 @@ try {
       fileUrl: String(fileUrl || ''),
       suggestedName: String(suggestedName || ''),
     }),
+    exportCoverImage: (fileUrl, suggestedName) => ipcRenderer.invoke('bossai:export-cover-image', {
+      fileUrl: String(fileUrl || ''),
+      suggestedName: String(suggestedName || ''),
+    }),
     openLegalDocument: (documentId) => ipcRenderer.invoke('bossai:open-legal-document', String(documentId || '')),
   }))
 

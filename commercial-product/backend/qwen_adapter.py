@@ -343,6 +343,49 @@ def _normalize_topics(value: Any, topic_count: int) -> list[str]:
     return topics[:topic_count]
 
 
+COVER_TITLE_LIMIT = 12
+
+
+def generate_cover_title(script_text: str, current_title: str = "") -> dict[str, Any]:
+    """Produce a short cover line meant to be readable as a thumbnail."""
+    script = str(script_text or "").strip()
+    if not script:
+        raise ValueError("script text is required")
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "你是 BossAI Video Agent 的中文短视频封面文案编辑。"
+                "只依据口播文案提炼封面主标题，不编造价格、资质、效果、销量或承诺，不使用绝对化用语。"
+                f"封面标题必须极短、有冲击力，不超过 {COVER_TITLE_LIMIT} 个中文字符。"
+                '只输出 JSON，格式为 {"coverTitle": "封面标题"}，不要输出其他任何内容。'
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                f"发布标题（可参考，可不用）：{str(current_title or '').strip() or '未提供'}\n\n"
+                f"口播文案：\n{script}"
+            ),
+        },
+    ]
+    completion = _complete(messages, max_tokens=256, temperature=0.7)
+
+    cover_title = ""
+    for parsed in _iter_json_objects(completion):
+        cover_title = str(parsed.get("coverTitle") or parsed.get("title") or "").strip()
+        if cover_title:
+            break
+    if not cover_title:
+        lines = [line.strip() for line in completion.splitlines() if line.strip()]
+        cover_title = next((line for line in lines if not line.startswith("#") and not _looks_like_json(line)), "")
+
+    cover_title = re.sub(r'^["“”\'\s]+|["“”\'\s]+$', "", cover_title)
+    if not cover_title or _looks_like_json(cover_title):
+        raise RuntimeError("Qwen llama-server returned no usable cover title")
+    return {"coverTitle": cover_title[:COVER_TITLE_LIMIT], "titleLimit": COVER_TITLE_LIMIT}
+
+
 def generate_title(script_text: str, platform: str = "douyin", topic_count: int = 5) -> dict[str, Any]:
     """Derive a publishing title and hashtags from the finished script."""
     script = str(script_text or "").strip()

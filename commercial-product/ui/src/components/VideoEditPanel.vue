@@ -63,6 +63,51 @@
     </section>
 
     <section class="edit-block">
+      <h3>{{ tr('画中画', 'Picture-in-picture') }}</h3>
+      <label class="consent-row">
+        <input v-model="edit.pipEnabled" type="checkbox" :disabled="!composerReady || !mediaLibrary.length" />
+        <span>{{ tr('在画面上叠加图片或视频素材', 'Overlay an image or clip on the video') }}</span>
+      </label>
+      <label>
+        <span>{{ tr('素材', 'Media') }}</span>
+        <select v-model="edit.pipMediaId" :disabled="!edit.pipEnabled || !composerReady">
+          <option value="">{{ tr('请选择素材', 'Select media') }}</option>
+          <option v-for="item in mediaLibrary" :key="assetId(item)" :value="assetId(item)">
+            {{ assetName(item, tr('本机素材', 'Local media')) }} · {{ item.kind === 'image' ? tr('图片', 'Image') : tr('视频', 'Video') }}
+          </option>
+        </select>
+      </label>
+      <div class="grid two">
+        <label>
+          <span>{{ tr('位置', 'Corner') }}</span>
+          <select v-model="edit.pipCorner" :disabled="pipLocked">
+            <option v-for="[value, zh, en] in PIP_CORNERS" :key="value" :value="value">{{ tr(zh, en) }}</option>
+          </select>
+        </label>
+        <label><span>{{ tr('边距', 'Margin') }} {{ edit.pipMarginPercent }}%</span><input v-model.number="edit.pipMarginPercent" type="range" min="0" max="40" :disabled="pipLocked" /></label>
+      </div>
+      <label><span>{{ tr('画面占比', 'Size') }} {{ edit.pipScalePercent }}%</span><input v-model.number="edit.pipScalePercent" type="range" min="5" max="100" :disabled="pipLocked" /></label>
+      <label><span>{{ tr('不透明度', 'Opacity') }} {{ edit.pipOpacity }}%</span><input v-model.number="edit.pipOpacity" type="range" min="10" max="100" :disabled="pipLocked" /></label>
+      <div class="grid two">
+        <label><span>{{ tr('开始秒', 'Start (s)') }}</span><input v-model.number="edit.pipStartSeconds" type="number" min="0" step="0.5" :disabled="pipLocked" /></label>
+        <label><span>{{ tr('结束秒', 'End (s)') }}</span><input v-model.number="edit.pipEndSeconds" type="number" min="0" step="0.5" :disabled="pipLocked" :placeholder="tr('0 = 到片尾', '0 = to the end')" /></label>
+      </div>
+      <p class="hint">{{ tr('占比按成片画面计算，与素材原始分辨率无关。', 'Size is measured against the output frame, not the source asset resolution.') }}</p>
+      <div class="grid two">
+        <label><span>{{ tr('上传素材', 'Upload media') }}</span><input type="file" accept="image/*,video/*" @change="selectMediaFile" /></label>
+        <label>
+          <span>{{ tr('操作', 'Actions') }}</span>
+          <div class="inline-field">
+            <button class="secondary" :disabled="!mediaFile || mediaUploading" @click="uploadPictureInPictureMedia">
+              {{ mediaUploading ? tr('上传中…', 'Uploading…') : tr('保存素材', 'Save media') }}
+            </button>
+            <button class="secondary" @click="goTo('assets')">{{ tr('管理素材', 'Manage') }}</button>
+          </div>
+        </label>
+      </div>
+    </section>
+
+    <section class="edit-block">
       <h3>{{ tr('通栏标题', 'Banner title') }}</h3>
       <label class="consent-row">
         <input v-model="edit.videoTitleEnabled" type="checkbox" :disabled="!composerReady" />
@@ -91,18 +136,27 @@
 import { computed } from 'vue'
 
 import { tr } from '../i18n.js'
+import { assetId, assetName } from '../stores/assets.js'
 import { composerReady } from '../stores/session.js'
 import {
   CAPTION_POSITIONS,
+  PIP_CORNERS,
   bgmFile,
   bgmLibrary,
   bgmUploading,
   edit,
   fontLibrary,
+  mediaFile,
+  mediaLibrary,
+  mediaUploading,
   removeBackgroundMusic,
   selectBgmFile,
+  selectMediaFile,
   uploadBackgroundMusic,
+  uploadPictureInPictureMedia,
 } from '../stores/studio.js'
+import { goTo } from '../stores/ui.js'
 
 const subtitleLocked = computed(() => !edit.subtitleEnabled || !composerReady.value)
+const pipLocked = computed(() => !edit.pipEnabled || !composerReady.value)
 </script>
