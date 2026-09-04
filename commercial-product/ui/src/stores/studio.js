@@ -11,13 +11,14 @@ import {
   generateTitle,
   uploadAvatarVideo,
   uploadBgm,
+  transcribeMedia,
   uploadMedia,
   uploadVoice,
 } from '../api.js'
 import { videoCapabilities } from '../capabilities/video-capability-adapter.js'
 import { requestLanguage, tr } from '../i18n.js'
 import { assetId, avatars, media, refreshAvatars, refreshMedia, refreshVoices, voices } from './assets.js'
-import { desktopExportAvailable, refreshVideoAssets, videoAssets } from './session.js'
+import { desktopExportAvailable, refreshVideoAssets, transcriptionReady, videoAssets } from './session.js'
 import { busyAction, error, message, run } from './ui.js'
 
 /** Content shapes the rewrite engine is tuned for, matching the backend enum. */
@@ -83,6 +84,10 @@ export const titleLimit = ref(0)
 export const bgmFile = ref(null)
 export const bgmUploading = ref(false)
 export const exportBusy = ref(false)
+
+/** Local transcription of a customer-held video, used to seed the script. */
+export const transcribeFile = ref(null)
+export const transcribeBusy = ref(false)
 
 export const mediaFile = ref(null)
 export const mediaDisplayName = ref('')
@@ -309,6 +314,39 @@ export async function rewrite() {
     form.scriptText = String(result?.rewriteText || result || '')
     message.value = tr('文案已生成，可以继续调整后制作配音。', 'Script generated. You can edit it before creating voiceover.')
   }, 'rewrite').catch(() => {})
+}
+
+export function selectTranscribeFile(event) {
+  const [file] = Array.from(event?.target?.files || [])
+  transcribeFile.value = file || null
+}
+
+/**
+ * Transcribe a video/audio file the user already has, into the source-text box.
+ *
+ * This is the compliant counterpart to the original product's "paste a Douyin
+ * link" flow: the media must be supplied by the user, nothing is fetched from a
+ * platform.
+ */
+export async function transcribeToScript() {
+  if (!transcribeFile.value || !transcriptionReady.value) return
+  transcribeBusy.value = true
+  error.value = ''
+  try {
+    const result = await transcribeMedia(transcribeFile.value, (job) => {
+      message.value = job?.message || tr('正在本地转写…', 'Transcribing locally…')
+    })
+    const text = String(result?.text || '').trim()
+    if (!text) throw new Error(tr('没有识别到语音内容。', 'No speech was recognised in this file.'))
+    form.sourceText = form.sourceText.trim() ? `${form.sourceText.trim()}
+${text}` : text
+    transcribeFile.value = null
+    message.value = tr('已转写为原始文案，可继续用 AI 改写。', 'Transcribed into the source script; you can now rewrite it with AI.')
+  } catch (e) {
+    error.value = e?.message || tr('本地转写失败', 'Local transcription failed')
+  } finally {
+    transcribeBusy.value = false
+  }
 }
 
 export async function makeTitle() {

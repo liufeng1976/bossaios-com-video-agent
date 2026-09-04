@@ -205,6 +205,20 @@ export function mediaFileUrl(mediaId) {
   return apiUrl(`/api/commercial/media/${encodeURIComponent(mediaId)}/file`)
 }
 
+export async function getTranscriptionSetup() {
+  return requestJson('/api/commercial/transcription/setup')
+}
+
+/**
+ * Transcribe a media file the customer already holds on this machine.
+ * There is deliberately no "paste a platform link" equivalent.
+ */
+export async function transcribeMedia(file, onProgress) {
+  const first = await uploadMultipart('/api/commercial/transcription/upload', file)
+  if (!first?.jobId) throw new Error('本地转写服务未返回任务 ID')
+  return pollJob(`/api/commercial/transcription/jobs/${encodeURIComponent(first.jobId)}`, { onProgress })
+}
+
 /** Build a cover image from a frame of the finished video. */
 export async function createCover(payload) {
   return requestJson('/api/commercial/video/cover', {

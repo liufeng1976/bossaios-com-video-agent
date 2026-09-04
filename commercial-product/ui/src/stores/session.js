@@ -15,6 +15,7 @@ import {
   getEulaStatus,
   getProduct,
   getRuntimeInstallCenter,
+  getTranscriptionSetup,
   getVideoAssets,
   hasLocalRuntimeControl,
   installRuntime,
@@ -36,6 +37,7 @@ export const runtimeCenter = ref(null)
 export const legalStatus = ref(null)
 export const publishStatus = ref(null)
 export const videoAssets = ref(null)
+export const transcriptionSetup = ref(null)
 export const backendReady = ref(false)
 
 export const authMode = ref('login')
@@ -180,6 +182,7 @@ export const publishReasonLabel = computed(() => {
 })
 
 export const composerReady = computed(() => Boolean(videoAssets.value?.composer?.ready))
+export const transcriptionReady = computed(() => Boolean(transcriptionSetup.value?.ready))
 export const runtimeControlAvailable = computed(() => hasLocalRuntimeControl())
 
 export const runtimeItems = computed(() => {
@@ -214,6 +217,15 @@ export const runtimeItems = computed(() => {
       blockedReason: python.ready ? '' : tr('先安装 Python 3.10', 'Install Python 3.10 first'),
     },
     {
+      id: 'whisper',
+      name: tr('本地转写引擎（可选）', 'Local transcription engine (optional)'),
+      description: tr('从你自有的视频提取文案，并让字幕时间轴对齐真实语音。', 'Extracts a script from video you own and aligns subtitles to the real speech.'),
+      ready: Boolean((components.whisper || {}).ready),
+      installable: Boolean((components.whisper || {}).installable),
+      blockedReason: python.ready ? '' : tr('先安装 Python 3.10', 'Install Python 3.10 first'),
+      optional: true,
+    },
+    {
       id: 'musetalk',
       name: tr('MuseTalk 数字人引擎', 'MuseTalk digital-human engine'),
       description: tr('用于客户授权人物视频的数字人口播合成。', 'Creates talking-avatar video from authorized customer media.'),
@@ -228,7 +240,9 @@ export const runtimeItems = computed(() => {
   ]
 })
 
-export const allCoreRuntimesReady = computed(() => runtimeItems.value.every((item) => item.ready))
+export const allCoreRuntimesReady = computed(() =>
+  runtimeItems.value.filter((item) => !item.optional).every((item) => item.ready),
+)
 export const desktopLegalAvailable = computed(() =>
   Boolean(globalThis?.bossaiDesktop?.legalStatus && globalThis?.bossaiDesktop?.openLegalDocument),
 )
@@ -293,6 +307,15 @@ export async function refreshRuntimeCenter() {
   }
 }
 
+export async function refreshTranscriptionSetup() {
+  try {
+    transcriptionSetup.value = await getTranscriptionSetup()
+  } catch {
+    // Transcription is optional; the studio degrades to manual script entry.
+    transcriptionSetup.value = null
+  }
+}
+
 export async function refreshVideoAssets() {
   try {
     videoAssets.value = await getVideoAssets()
@@ -333,7 +356,7 @@ export async function refreshStatus() {
     accountSession.value = accountResult
     publishStatus.value = publishResult
     backendReady.value = true
-    await Promise.all([refreshRuntimeCenter(), refreshVideoAssets()])
+    await Promise.all([refreshRuntimeCenter(), refreshVideoAssets(), refreshTranscriptionSetup()])
   } catch (e) {
     backendReady.value = false
     error.value = e?.message || tr('无法连接本地 BossAI Video Agent 服务。', 'Unable to connect to the local BossAI Video Agent service.')

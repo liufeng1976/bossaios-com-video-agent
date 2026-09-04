@@ -1,0 +1,17 @@
+# BossAI Video Agent Windows dependency lock for the pinned faster-whisper ASR
+# runtime (Systran/faster-whisper-large-v3, revision edaa852ec7e145841d8ffdb056a99866b5f0a478).
+#
+# Scope: local transcription of customer-provided media only.
+# The model files themselves are downloaded by install-whisper.ps1 from the
+# pinned revision and SHA-256 verified; nothing here may fetch models at
+# inference time.
+#
+# HF_HUB_OFFLINE=1 is set by the adapter so faster-whisper can never fall back
+# to a network download while transcribing.
+
+faster-whisper==1.1.1
+ctranslate2==4.5.0
+av==13.1.0
+tokenizers==0.20.3
+onnxruntime==1.19.2
+numpy==1.26.4

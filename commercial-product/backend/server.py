@@ -28,6 +28,7 @@ import cosyvoice_adapter
 import musetalk_adapter
 import qwen_adapter
 import video_composer
+import whisper_adapter
 
 PRODUCT_ID = "bossai-video-agent"
 PRODUCT_VERSION = "0.1.0"
@@ -65,6 +66,7 @@ app.add_middleware(
 _TTS_JOBS: dict[str, dict[str, Any]] = {}
 _DH_JOBS: dict[str, dict[str, Any]] = {}
 _VIDEO_JOBS: dict[str, dict[str, Any]] = {}
+_TRANSCRIPTION_JOBS: dict[str, dict[str, Any]] = {}
 _RUNTIME_JOBS: dict[str, dict[str, Any]] = {}
 _AGENT_EXECUTIONS: dict[str, dict[str, Any]] = {}
 _JOB_LOCK = threading.Lock()
@@ -599,10 +601,12 @@ def _public_runtime_setup() -> dict[str, Any]:
     qwen = qwen_adapter.inspect_setup()
     cosy = cosyvoice_adapter.inspect_setup()
     muse = musetalk_adapter.inspect_setup()
+    whisper = whisper_adapter.inspect_setup()
     return {
         "qwen": {"ready": bool(qwen.get("ready")), "missing": qwen.get("missing") or []},
         "cosyvoice2": {"ready": bool(cosy.get("ready")), "missing": cosy.get("missing") or []},
         "musetalk": {"ready": bool(muse.get("ready")), "missing": _sanitize_musetalk_missing(muse.get("missing") or [])},
+        "whisper": {"ready": bool(whisper.get("ready")), "missing": whisper.get("missing") or []},
     }
 
 
@@ -923,6 +927,9 @@ _RUNTIME_ENV_KEYS = {
     "BOSSAI_COSYVOICE_PYTHON",
     "BOSSAI_MUSETALK_ROOT",
     "BOSSAI_MUSETALK_PYTHON",
+    "BOSSAI_WHISPER_MODEL",
+    "BOSSAI_WHISPER_PYTHON",
+    "BOSSAI_WHISPER_DEVICE",
     "BOSSAI_FFMPEG_BIN",
 }
 
@@ -934,6 +941,7 @@ def _runtime_manifest_path(component: str) -> Path:
         "qwen": "qwen2.5-7b-instruct",
         "cosyvoice2": "cosyvoice2-0.5b",
         "musetalk": "musetalk",
+        "whisper": "faster-whisper-large-v3",
     }
     name = mapping.get(component)
     if not name:
@@ -1006,6 +1014,12 @@ def _runtime_install_center() -> dict[str, Any]:
                 "installerAvailable": (installers / "install-musetalk.ps1").is_file(),
                 "installable": bool(powershell and python_ready and ffmpeg),
                 "requires": ["python310", "ffmpeg"],
+            },
+            "whisper": {
+                **setup["whisper"],
+                "installerAvailable": (installers / "install-whisper.ps1").is_file(),
+                "installable": bool(powershell and python_ready),
+                "requires": ["python310"],
             },
         },
     }
@@ -1096,6 +1110,11 @@ def _runtime_installer_command(component: str, profile: str) -> list[str]:
             raise HTTPException(409, "FFmpeg is required before MuseTalk can be installed.")
         script = installers / "install-musetalk.ps1"
         args = [str(script), "-TargetDir", str(runtime_root / "musetalk"), "-DownloadRoot", str(download_root), "-PythonExe", str(python_exe), "-FfmpegExe", ffmpeg, *_runtime_proxy_installer_args(), "-AcceptLicense"]
+    elif component == "whisper":
+        if not python_exe.is_file():
+            raise HTTPException(409, "Install the BossAI private Python 3.10 runtime first.")
+        script = installers / "install-whisper.ps1"
+        args = [str(script), "-TargetDir", str(runtime_root / "faster-whisper-large-v3"), "-DownloadRoot", str(download_root), "-PythonExe", str(python_exe), "-Profile", profile, "-AcceptLicense"]
     else:
         raise HTTPException(404, "Unknown BossAI runtime component.")
     if not script.is_file():
@@ -1104,7 +1123,7 @@ def _runtime_installer_command(component: str, profile: str) -> list[str]:
 
 
 def _restore_installed_runtime_env() -> None:
-    for component in ("qwen", "cosyvoice2", "musetalk"):
+    for component in ("qwen", "cosyvoice2", "musetalk", "whisper"):
         _apply_installed_runtime_env(component)
 
 
@@ -1827,6 +1846,95 @@ def _resolve_bgm(file_name: str) -> Path:
     return path
 
 
+@app.get("/api/commercial/transcription/setup")
+def transcription_setup():
+    return {"success": True, "data": whisper_adapter.inspect_setup()}
+
+
+@app.post("/api/commercial/transcription/upload")
+async def upload_transcription_media(file: UploadFile = File(...)):
+    """Accept a media file the customer already holds and transcribe it locally.
+
+    Only a local upload is accepted. The product deliberately offers no
+    "paste a platform link" path: pulling a script out of a third-party
+    platform is outside what this product does.
+    """
+    setup = whisper_adapter.inspect_setup()
+    if not setup.get("ready"):
+        raise HTTPException(503, "Local transcription runtime is not ready: " + ", ".join(setup.get("missing") or []))
+
+    original = Path(file.filename or "media.mp4").name
+    suffix = Path(original).suffix.lower()
+    allowed = video_composer.VIDEO_SUFFIXES | video_composer.AUDIO_SUFFIXES
+    if suffix not in allowed:
+        raise HTTPException(400, "Media must be a video (MP4/MOV/WEBM/MKV) or audio (MP3/WAV/M4A/AAC/FLAC/OGG) file.")
+
+    staging = _dir("transcription-input")
+    target = (staging / f"{uuid.uuid4().hex}{suffix}").resolve()
+    size = 0
+    try:
+        with target.open("wb") as handle:
+            while True:
+                chunk = await file.read(8 * 1024 * 1024)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > MAX_AVATAR_BYTES:
+                    raise HTTPException(413, "Media exceeds the 2 GiB limit.")
+                handle.write(chunk)
+    except Exception:
+        target.unlink(missing_ok=True)
+        raise
+    finally:
+        await file.close()
+    if size < 1024:
+        target.unlink(missing_ok=True)
+        raise HTTPException(400, "Media file is empty or invalid.")
+
+    job_id = uuid.uuid4().hex
+    _set_job(_TRANSCRIPTION_JOBS, job_id, id=job_id, status="queued", progress=0, message="Local transcription queued")
+
+    def worker() -> None:
+        _set_job(_TRANSCRIPTION_JOBS, job_id, status="running", progress=10, message="Transcribing locally")
+        try:
+            result = whisper_adapter.transcribe(
+                media_path=target,
+                worker_path=HERE / "whisper_worker.py",
+            )
+            segments = result.get("segments") or []
+            _set_job(
+                _TRANSCRIPTION_JOBS,
+                job_id,
+                status="done",
+                progress=100,
+                message="Local transcription completed",
+                text=str(result.get("text") or ""),
+                segments=segments,
+                segmentCount=len(segments),
+                language=str(result.get("language") or ""),
+                durationSeconds=result.get("durationSeconds"),
+                device=str(result.get("device") or ""),
+            )
+        except Exception as exc:
+            _set_job(_TRANSCRIPTION_JOBS, job_id, status="failed", progress=100, message=str(exc))
+        finally:
+            # The uploaded media is only needed for the transcription itself.
+            target.unlink(missing_ok=True)
+
+    threading.Thread(target=worker, daemon=True, name=f"bossai-asr-{job_id[:8]}").start()
+    return {"success": True, "data": {"jobId": job_id, "status": "queued", "sizeBytes": size}}
+
+
+@app.get("/api/commercial/transcription/jobs/{job_id}")
+def transcription_job(job_id: str):
+    if not JOB_ID_RE.fullmatch(job_id):
+        raise HTTPException(404, "BossAI transcription job not found.")
+    job = _get_job(_TRANSCRIPTION_JOBS, job_id)
+    if job is None:
+        raise HTTPException(404, "BossAI transcription job not found.")
+    return {"success": True, "data": job}
+
+
 @app.get("/api/commercial/video/assets")
 def commercial_video_assets():
     """Expose the editing assets that exist on this machine.
@@ -1904,6 +2012,33 @@ def delete_commercial_bgm(file_name: str):
     return {"success": True, "data": {"fileName": path.name, "removed": True}}
 
 
+def _measured_subtitle_segments(source: Path) -> list[video_composer.Segment]:
+    """Transcribe the rendered voiceover so subtitles land on the real speech.
+
+    The digital-human clip already carries the generated voiceover, so
+    transcribing it yields timings that match the final cut exactly. Returns an
+    empty list when the ASR runtime is unavailable or fails, which makes the
+    composer fall back to proportional timing rather than failing the render.
+    """
+    if not whisper_adapter.inspect_setup().get("ready"):
+        return []
+    try:
+        result = whisper_adapter.transcribe(media_path=source, worker_path=HERE / "whisper_worker.py")
+    except Exception:
+        return []
+    segments: list[video_composer.Segment] = []
+    for item in result.get("segments") or []:
+        text = str(item.get("text") or "").strip()
+        try:
+            start = float(item.get("start"))
+            end = float(item.get("end"))
+        except (TypeError, ValueError):
+            continue
+        if text and end > start:
+            segments.append(video_composer.Segment(text=text, start=start, end=end))
+    return segments
+
+
 @app.post("/api/commercial/video/render")
 def render_final_video(body: VideoRenderBody):
     """Compose the deliverable with subtitles, banner title and background music."""
@@ -1959,6 +2094,7 @@ def render_final_video(body: VideoRenderBody):
     def worker() -> None:
         _set_job(_VIDEO_JOBS, job_id, status="running", progress=5, message="Preparing final video")
         try:
+            measured = _measured_subtitle_segments(source) if subtitle.enabled else []
             summary = video_composer.compose(
                 source_video=source,
                 output_path=output,
@@ -1968,6 +2104,7 @@ def render_final_video(body: VideoRenderBody):
                 title=title,
                 audio=audio,
                 pip=pip,
+                subtitle_segments=measured,
                 asset_font_dir=_asset_font_dir(),
                 on_progress=lambda percent, note: _set_job(
                     _VIDEO_JOBS, job_id, status="running", progress=max(5, percent), message=note

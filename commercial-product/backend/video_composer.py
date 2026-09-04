@@ -14,9 +14,10 @@ Design constraints that this module deliberately honours:
   font through ``fontfile=`` inside a per-job working directory. FFmpeg runs with
   that directory as its working directory, so no Windows drive letter or
   punctuation ever has to be escaped into a filter graph.
-* Timing is derived from the rendered voiceover duration; the product has no
-  speech-recognition runtime, so segment timing is distributed across the
-  measured duration proportionally to segment length.
+* Subtitle timing prefers measured segments from transcribing the rendered
+  voiceover. When the local ASR runtime is not installed, timing falls back to
+  distributing the script across the measured duration proportionally to
+  segment length, and the render result reports which of the two was used.
 """
 
 from __future__ import annotations
@@ -580,6 +581,7 @@ def compose(
     title: TitleStyle | None = None,
     audio: AudioMix | None = None,
     pip: PictureInPicture | None = None,
+    subtitle_segments: Sequence[Segment] | None = None,
     asset_font_dir: Path | None = None,
     on_progress: Callable[[int, str], None] | None = None,
 ) -> dict[str, Any]:
@@ -601,9 +603,19 @@ def compose(
 
     duration = probe_duration(source_video)
     frame_width, _frame_height = probe_video_size(source_video)
+    # Real timings from transcribing the rendered voiceover are preferred. The
+    # proportional fallback only guesses, so it is used solely when no measured
+    # segments were supplied.
     segments: list[Segment] = []
     if subtitle.enabled:
-        segments = build_segments(script_text, duration, subtitle.line_chars)
+        if subtitle_segments:
+            segments = [
+                Segment(text=_wrap(item.text, subtitle.line_chars), start=item.start, end=item.end)
+                for item in subtitle_segments
+                if item.text.strip() and item.end > item.start
+            ]
+        else:
+            segments = build_segments(script_text, duration, subtitle.line_chars)
 
     subtitle_font = resolve_font(subtitle.font_file, asset_font_dir) or default_font(asset_font_dir)
     title_font = resolve_font(title.font_file, asset_font_dir) or subtitle_font
@@ -727,6 +739,7 @@ def compose(
         "durationSeconds": round(duration, 3),
         "subtitleSegments": len(segments),
         "subtitleBurned": bool(subtitle.enabled and segments),
+        "subtitleTimingSource": ("transcription" if subtitle_segments else "estimated") if segments else "none",
         "titleBurned": bool(title.enabled and title.text.strip() and title_font is not None),
         "bgmMixed": bgm_path is not None,
         "pipOverlaid": bool(pip.enabled),

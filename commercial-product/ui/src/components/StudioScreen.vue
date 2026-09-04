@@ -12,6 +12,24 @@
         <div><span class="step">01</span><h2>{{ tr('文案仿写', 'Script') }}</h2></div>
         <span class="hint">{{ tr('先给 AI 足够的业务背景', 'Give AI enough business context first') }}</span>
       </div>
+      <div class="policy-card">
+        <strong>{{ tr('从已有视频提取文案', 'Extract a script from your own video') }}</strong>
+        <p>{{ tr('上传你本人拍摄或已获授权的视频/音频，在本机转写为文字。BossAI 不提供从抖音等平台链接抓取内容的功能。', 'Upload a video or audio file you recorded or are authorized to use; it is transcribed on this machine. BossAI does not fetch content from Douyin or other platform links.') }}</p>
+      </div>
+      <div class="grid two">
+        <label>
+          <span>{{ tr('上传视频 / 音频', 'Upload video or audio') }}</span>
+          <input type="file" accept="video/*,audio/*" :disabled="!transcriptionReady" @change="selectTranscribeFile" />
+        </label>
+        <label>
+          <span>{{ tr('操作', 'Actions') }}</span>
+          <button class="secondary" :disabled="!transcriptionReady || !transcribeFile || transcribeBusy" @click="transcribeToScript">
+            {{ transcribeBusy ? tr('正在本地转写…', 'Transcribing…') : tr('转写为文案', 'Transcribe to script') }}
+          </button>
+        </label>
+      </div>
+      <p v-if="!transcriptionReady" class="runtime-note">{{ tr('本地转写组件尚未安装。可在「设置 → 运行环境」中安装后使用；未安装时可直接粘贴文案。', 'The local transcription runtime is not installed. Install it in Settings → Runtimes, or just paste your script directly.') }}</p>
+
       <label>
         <span>{{ tr('原始文案或素材', 'Source copy or material') }}</span>
         <textarea v-model="form.sourceText" rows="7" :placeholder="tr('粘贴已有口播、产品资料、门店介绍或你想表达的核心内容', 'Paste an existing script, product information, store introduction, or the core message you want to express')"></textarea>
@@ -302,6 +320,7 @@ import {
   publishReasonLabel,
   publishStatus,
   rewriteAllowed,
+  transcriptionReady,
   ttsAllowed,
 } from '../stores/session.js'
 import {
@@ -341,7 +360,11 @@ import {
   renderSummary,
   rewrite,
   selectAvatarFile,
+  selectTranscribeFile,
   selectVoiceFile,
+  transcribeBusy,
+  transcribeFile,
+  transcribeToScript,
   title,
   titleLimit,
   topics,
