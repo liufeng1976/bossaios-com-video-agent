@@ -347,6 +347,10 @@ ipcMain.on('bossai:get-local-control-token', (event) => {
   event.returnValue = localControlToken
 })
 ipcMain.handle('bossai:legal-status', () => legalStatus())
+ipcMain.handle('bossai:quit-app', () => {
+  app.quit()
+  return { quitting: true }
+})
 ipcMain.handle('bossai:open-upgrade', async () => {
   try {
     await shell.openExternal(UPGRADE_URL)

@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('bossaiDesktop', Object.freeze({
   localControlToken,
   legalStatus: () => ipcRenderer.invoke('bossai:legal-status'),
   openUpgrade: () => ipcRenderer.invoke('bossai:open-upgrade'),
+  quitApp: () => ipcRenderer.invoke('bossai:quit-app'),
   exportFinalVideo: (payload) => ipcRenderer.invoke('bossai:export-final-video', {
     fileUrl: String(payload?.fileUrl || ''),
     suggestedName: String(payload?.suggestedName || ''),

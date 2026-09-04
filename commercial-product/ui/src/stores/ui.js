@@ -2,7 +2,7 @@ import { ref } from 'vue'
 
 import { tr } from '../i18n.js'
 
-export const SCREENS = Object.freeze(['home', 'studio', 'assets', 'settings', 'legal'])
+export const SCREENS = Object.freeze(['home', 'studio', 'assets', 'publishing', 'settings', 'legal'])
 
 export const screen = ref('home')
 export const message = ref('')

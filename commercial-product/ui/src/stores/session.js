@@ -106,30 +106,53 @@ export const deviceBindingLabel = computed(() =>
 export const businessUseAllowed = computed(() => Boolean(entitlement.value?.businessUseAllowed))
 export const eulaAccepted = computed(() => Boolean(eulaStatus.value?.accepted || entitlement.value?.eulaAccepted))
 
+// Status values the backend actually returns (see server.py _entitlement_snapshot):
+// preview, local_free, eula_required, active, restricted, unknown_plan,
+// device_required, quota_frozen, quota_exhausted, unavailable.
 export const entitlementLabel = computed(() => {
   if (previewUnlocked) return tr('内部预览', 'Internal Preview')
   if (!backendReady.value) return tr('本地服务未连接', 'Local service disconnected')
   const byStatus = {
     local_free: tr('Free Personal · 本地', 'Free Personal · Local'),
-    account_required: tr('请登录 BossAI', 'Sign in to BossAI'),
     eula_required: tr('请接受许可协议', 'Accept license terms'),
-    unconfigured: tr('BossAI OS 未连接', 'BossAI OS disconnected'),
     quota_exhausted: tr('本月额度已用完', 'Monthly quota exhausted'),
     quota_frozen: tr('额度已冻结', 'Quota frozen'),
     device_required: tr('设备未授权', 'Device not authorized'),
     unknown_plan: tr('套餐未识别', 'Unknown plan'),
+    restricted: tr('授权受限', 'Restricted'),
+    unavailable: tr('BossAI 服务暂不可用', 'BossAI service unavailable'),
   }
   return byStatus[entitlement.value?.status] || (executionAllowed.value ? tierLabel.value : tr('授权受限', 'Restricted'))
 })
 
-export const entitlementReason = computed(
-  () =>
-    entitlement.value?.reason ||
+/**
+ * The backend's `reason` field is a fixed English string meant for logs, not
+ * end users — it must never be shown as-is. This maps the entitlement status
+ * to a localized explanation instead, falling back to a generic message (not
+ * the raw backend string) for anything unmapped.
+ */
+export const entitlementReason = computed(() => {
+  const status = entitlement.value?.status
+  const byStatus = {
+    preview: tr('内部预览模式，不代表真实的客户订阅、额度或授权。', 'Internal preview mode. This does not represent a real customer subscription, quota, or entitlement.'),
+    local_free: tr('Free Personal 已在本地激活，个人非商业用途永久免费；商业用途需要登录 BossAI 并升级 Business。', 'Free Personal is active locally and free forever for personal, non-commercial use. Commercial use requires signing in to BossAI and upgrading to Business.'),
+    eula_required: tr('请先在设置中接受软件许可协议，才能使用本地 AI 能力。', 'Accept the software licence in Settings before using local AI features.'),
+    active: tr('当前 BossAI 授权有效。', 'The current BossAI entitlement is active.'),
+    restricted: tr('当前 BossAI 套餐或授权不满足执行条件，请在设置中检查账号与套餐状态。', 'The current BossAI plan or entitlement does not authorize execution. Check your account and plan in Settings.'),
+    unknown_plan: tr('BossAI 返回了本产品版本无法识别的套餐，请更新应用或联系支持。', 'BossAI returned a plan this product version does not recognize. Update the app or contact support.'),
+    device_required: tr('当前设备尚未在 BossAI 账号下完成授权注册。', 'This device is not yet registered under your BossAI account.'),
+    quota_frozen: tr('BossAI 额度账户已被冻结，请前往 BossAI 官方渠道处理。', 'The BossAI quota wallet is frozen. Resolve this through official BossAI channels.'),
+    quota_exhausted: tr('本月 BossAI 额度已用完，额度恢复以 BossAI 权威记录为准。', 'This month’s BossAI quota is exhausted. It resets according to the authoritative BossAI record.'),
+    unavailable: tr('无法连接 BossAI 商业服务，个人本地免费功能不受影响。', 'Unable to reach BossAI commercial services; local Free Personal features are unaffected.'),
+  }
+  return (
+    byStatus[status] ||
     tr(
       'Free Personal 可在本地免费使用；需要 Pro、Gateway 或商业用途时再登录 BossAI。',
       'Free Personal can be used locally for free. Sign in to BossAI only when you need Pro, Gateway, or commercial use.',
-    ),
-)
+    )
+  )
+})
 
 export const digitalHumanMissingLabel = computed(() => {
   const missing = Array.isArray(digitalHumanSetup.value?.missing) ? digitalHumanSetup.value.missing : []
@@ -143,6 +166,17 @@ export const digitalHumanMissingLabel = computed(() => {
   }
   const names = missing.map((item) => labels[item] || item).join(tr('、', ', '))
   return tr(`缺少：${names}`, `Missing: ${names}`)
+})
+
+/**
+ * The publish-status `reason` field is a fixed English string for logs, same
+ * as the entitlement reason — never render it directly.
+ */
+export const publishReasonLabel = computed(() => {
+  if (!publishStatus.value) return tr('等待读取 BossAI 发布治理状态。', 'Waiting for BossAI publishing-governance status.')
+  return publishStatus.value.automatedPublishAllowed
+    ? tr('自动发布已获授权并接入平台账号。', 'Automated publishing is authorized and connected to a platform account.')
+    : tr('自动发布在获得 BossAI 审批与平台账号绑定前继续保持关闭；成片可随时手动导出发布。', 'Automated publishing stays disabled until BossAI approval and platform-account binding are connected; export and publish the video manually anytime.')
 })
 
 export const composerReady = computed(() => Boolean(videoAssets.value?.composer?.ready))
@@ -428,6 +462,16 @@ export async function openLegal(documentId) {
     }
   } catch (e) {
     error.value = e?.message || tr('无法打开法律文件', 'Unable to open legal document')
+  }
+}
+
+export const desktopQuitAvailable = computed(() => Boolean(globalThis?.bossaiDesktop?.quitApp))
+
+export async function quitApp() {
+  try {
+    await globalThis?.bossaiDesktop?.quitApp?.()
+  } catch {
+    // Best-effort; there is nothing meaningful to recover from here.
   }
 }
 

@@ -40,6 +40,7 @@
 
       <HomeScreen v-if="screen === 'home'" />
       <AssetsScreen v-else-if="screen === 'assets'" />
+      <PublishingScreen v-else-if="screen === 'publishing'" />
       <SettingsScreen v-else-if="screen === 'settings'" />
       <LegalScreen v-else-if="screen === 'legal'" />
       <StudioScreen v-else />
@@ -47,6 +48,8 @@
       <p v-if="error" class="error-banner">{{ error }}</p>
       <p v-if="message" class="message-banner">{{ message }}</p>
     </main>
+
+    <LicenseGate v-if="showLicenseGate" />
   </div>
 </template>
 
@@ -56,23 +59,28 @@ import { computed, onMounted } from 'vue'
 import AssetsScreen from './components/AssetsScreen.vue'
 import HomeScreen from './components/HomeScreen.vue'
 import LegalScreen from './components/LegalScreen.vue'
+import LicenseGate from './components/LicenseGate.vue'
+import PublishingScreen from './components/PublishingScreen.vue'
 import SettingsScreen from './components/SettingsScreen.vue'
 import StudioScreen from './components/StudioScreen.vue'
 import { locale, setLocale, tr } from './i18n.js'
+import { refreshAssets } from './stores/assets.js'
 import {
   backendReady,
   entitlementLabel,
+  eulaAccepted,
   executionAllowed,
+  previewUnlocked,
   refreshLegalStatus,
   refreshStatus,
 } from './stores/session.js'
-import { refreshAssets } from './stores/assets.js'
 import { error, goTo, message, screen } from './stores/ui.js'
 
 const navItems = computed(() => [
   { id: 'home', label: tr('首页', 'Home') },
   { id: 'studio', label: tr('AI 口播视频', 'AI Video Studio') },
   { id: 'assets', label: tr('素材管理', 'Assets') },
+  { id: 'publishing', label: tr('发布平台', 'Publishing') },
   { id: 'settings', label: tr('设置', 'Settings') },
   { id: 'legal', label: tr('条款与隐私', 'Legal & Privacy') },
 ])
@@ -82,11 +90,17 @@ const screenTitle = computed(() => {
     home: tr('本地 AI 视频生产工作台', 'Local AI Video Production Workspace'),
     studio: tr('AI 口播视频生产', 'AI Talking Video Studio'),
     assets: tr('音色与数字人素材库', 'Voice & Avatar Library'),
+    publishing: tr('发布平台账号', 'Publishing Accounts'),
     settings: tr('设置', 'Settings'),
     legal: tr('条款、隐私与许可', 'Terms, Privacy & Licensing'),
   }
   return titles[screen.value] || titles.home
 })
+
+// Blocks all interaction until the licence is accepted, once we actually know
+// the real status — showing it before backendReady would flash it on every
+// launch even when a prior session already accepted the licence.
+const showLicenseGate = computed(() => backendReady.value && !previewUnlocked && !eulaAccepted.value)
 
 onMounted(async () => {
   await refreshLegalStatus()

@@ -260,7 +260,7 @@
       </div>
       <div class="policy-card">
         <strong>{{ publishStatus?.automatedPublishAllowed ? tr('自动发布已连接', 'Automated publishing connected') : tr('自动发布尚未开放', 'Automated publishing not enabled') }}</strong>
-        <p>{{ publishStatus?.reason || tr('等待读取 BossAI 发布治理状态。', 'Waiting for BossAI publishing-governance status.') }}</p>
+        <p>{{ publishReasonLabel }}</p>
       </div>
       <div class="grid two">
         <label>
@@ -281,7 +281,7 @@
       </div>
       <div v-if="publishPreparation" class="result-box final">
         <span>{{ tr('发布状态', 'Publishing status') }}</span>
-        <code>{{ publishPreparation.status }} · {{ publishPreparation.reason }}</code>
+        <code>{{ publishPreparationLabel }}</code>
       </div>
     </article>
   </section>
@@ -299,6 +299,7 @@ import {
   digitalHumanSetup,
   entitlementReason,
   executionAllowed,
+  publishReasonLabel,
   publishStatus,
   rewriteAllowed,
   ttsAllowed,
@@ -333,6 +334,7 @@ import {
   preparePublish,
   projectName,
   publishPreparation,
+  publishPreparationLabel,
   renderFinalVideo,
   renderProgress,
   renderStatusLabel,

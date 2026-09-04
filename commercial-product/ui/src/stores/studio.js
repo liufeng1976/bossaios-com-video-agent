@@ -162,6 +162,22 @@ export const hasEdits = computed(
     Number(edit.voiceMixVolume) !== 100,
 )
 
+/**
+ * The prepare-publish response carries an English `reason` meant for logs, so
+ * the outcome is described locally instead of echoing the backend string.
+ */
+export const publishPreparationLabel = computed(() => {
+  const preparation = publishPreparation.value
+  if (!preparation) return ''
+  if (preparation.automatedPublishAllowed) {
+    return tr('发布条件已满足，可以发起自动发布。', 'Publishing conditions are met; automated publishing can proceed.')
+  }
+  if (preparation.manualExportAllowed) {
+    return tr('自动发布未开放：成片已就绪，请导出后手动发布到目标平台。', 'Automated publishing is not enabled: the video is ready — export it and publish manually.')
+  }
+  return tr('当前不满足发布条件。', 'Publishing conditions are not met.')
+})
+
 export const renderStatusLabel = computed(() => {
   if (finalVideoUrl.value) return tr('已完成', 'Completed')
   if (busyAction.value === 'render') return tr('处理中…', 'Rendering…')

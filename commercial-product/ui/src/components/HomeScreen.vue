@@ -41,23 +41,30 @@
       <article class="feature-card active">
         <div class="badge">{{ tr('核心', 'Core') }}</div>
         <h3>{{ tr('AI 口播视频工厂', 'AI Talking-Video Studio') }}</h3>
-        <p>{{ tr('文案改写、授权音色配音、数字人口播、字幕与背景音乐合成、导出成片，一个流程走完。', 'Rewrite the script, generate voiceover with an authorized voice, produce the digital human, burn in subtitles and music, then export.') }}</p>
+        <p>{{ tr('文案改写、标题话题、授权音色配音、数字人口播、字幕/背景音乐/画中画剪辑、封面制作，一个流程走完。', 'Rewrite the script, generate titles and hashtags, produce voiceover and the digital human, edit in subtitles, music and picture-in-picture, then build the cover — all in one flow.') }}</p>
         <button class="primary" :disabled="!executionAllowed" @click="goTo('studio')">
           {{ tr('开始生产视频', 'Start producing') }}
         </button>
       </article>
 
-      <article class="feature-card disabled">
-        <div class="badge muted-badge">{{ tr('未开放', 'Planned') }}</div>
-        <h3>{{ tr('标题、封面与素材库', 'Titles, covers & media library') }}</h3>
-        <p>{{ tr('自动生成标题话题、封面成图，并统一管理数字人、音色与画中画素材。', 'Generate titles and hashtags, build covers, and manage avatars, voices and picture-in-picture media in one place.') }}</p>
-        <button disabled>{{ tr('规划中', 'In planning') }}</button>
+      <article class="feature-card active">
+        <div class="badge">{{ tr('已开放', 'Available') }}</div>
+        <h3>{{ tr('音色、数字人与素材库', 'Voices, avatars & media library') }}</h3>
+        <p>{{ tr('统一管理已授权的音色、数字人头像视频与画中画素材：试听、预览、重命名、删除。', 'Manage your authorized voices, avatar clips and picture-in-picture media in one place: audition, preview, rename and delete.') }}</p>
+        <button class="primary" @click="goTo('assets')">{{ tr('管理素材', 'Manage assets') }}</button>
+      </article>
+
+      <article class="feature-card active">
+        <div class="badge">{{ tr('已开放', 'Available') }}</div>
+        <h3>{{ tr('发布平台账号', 'Publishing accounts') }}</h3>
+        <p>{{ tr('记录抖音、视频号、小红书与快手的账号备注；自动发布在获得授权前继续保持关闭，成片可随时手动导出发布。', 'Note your Douyin, Channels, Xiaohongshu and Kuaishou accounts. Automated publishing stays disabled until authorized — export and publish manually anytime.') }}</p>
+        <button class="primary" @click="goTo('publishing')">{{ tr('管理发布账号', 'Manage accounts') }}</button>
       </article>
 
       <article class="feature-card disabled">
         <div class="badge muted-badge">{{ tr('未开放', 'Planned') }}</div>
-        <h3>{{ tr('多平台发布与团队矩阵', 'Multi-platform publishing & teams') }}</h3>
-        <p>{{ tr('绑定抖音、视频号、小红书与快手账号，批量发布并支持团队协作。自动发布在获得授权前保持关闭。', 'Bind Douyin, Channels, Xiaohongshu and Kuaishou accounts for batch publishing and team collaboration. Automated publishing stays disabled until authorized.') }}</p>
+        <h3>{{ tr('团队协作矩阵', 'Team collaboration') }}</h3>
+        <p>{{ tr('多账号、多任务的团队化批量生产与协作，规划中。', 'Multi-account, multi-task team production and collaboration is in planning.') }}</p>
         <button disabled>{{ tr('规划中', 'In planning') }}</button>
       </article>
     </div>
