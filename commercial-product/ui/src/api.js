@@ -219,6 +219,14 @@ export async function transcribeMedia(file, onProgress) {
   return pollJob(`/api/commercial/transcription/jobs/${encodeURIComponent(first.jobId)}`, { onProgress })
 }
 
+/** Assemble the video, cover and copy into one folder for manual upload. */
+export async function createPublishBundle(payload) {
+  return requestJson('/api/commercial/publish/bundle', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
 /** Build a cover image from a frame of the finished video. */
 export async function createCover(payload) {
   return requestJson('/api/commercial/video/cover', {

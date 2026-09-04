@@ -295,8 +295,22 @@
       <div v-if="title" class="result-box"><span>{{ tr('待发布标题', 'Title') }}</span><code>{{ title }}</code></div>
       <div v-if="topics" class="result-box"><span>{{ tr('话题标签', 'Hashtags') }}</span><code>{{ topics }}</code></div>
       <div class="button-row">
+        <button class="primary" :disabled="busy || !finalVideoUrl" @click="makePublishBundle">
+          {{ busyAction === 'bundle' ? tr('正在打包…', 'Packaging…') : tr('生成发布包', 'Create publish bundle') }}
+        </button>
+        <button class="secondary" :disabled="!publishBundle || !desktopBundleAvailable" @click="openPublishBundleFolder">
+          {{ tr('打开发布包目录', 'Open bundle folder') }}
+        </button>
+        <button class="secondary" :disabled="!desktopBundleAvailable" @click="openPlatformUploadPage">
+          {{ tr('打开平台上传页', 'Open platform uploader') }}
+        </button>
         <button class="secondary" :disabled="busy || !finalVideoUrl" @click="preparePublish">{{ tr('检查发布条件', 'Check publishing conditions') }}</button>
       </div>
+      <div v-if="publishBundle" class="result-box final">
+        <span>{{ tr('发布包', 'Publish bundle') }}</span>
+        <code>{{ publishBundle.files.map((f) => f.name).join(' · ') }}</code>
+      </div>
+      <p class="hint">{{ tr('发布包把成片、封面和标题话题放进同一个文件夹，你在平台官方后台上传即可。本产品不会登录或代操作你的平台账号。', 'The bundle puts the video, cover and copy in one folder so you can upload them in the official creator studio of the platform. This product never signs in to or operates your platform account.') }}</p>
       <div v-if="publishPreparation" class="result-box final">
         <span>{{ tr('发布状态', 'Publishing status') }}</span>
         <code>{{ publishPreparationLabel }}</code>
@@ -335,6 +349,7 @@ import {
   avatarUploading,
   cover,
   coverBusy,
+  desktopBundleAvailable,
   coverUrl,
   desktopCoverExportAvailable,
   digitalHumanUrl,
@@ -347,11 +362,15 @@ import {
   hasEdits,
   makeCover,
   makeCoverTitle,
+  makePublishBundle,
   makeDigitalHuman,
   makeTitle,
   makeVoice,
+  openPlatformUploadPage,
+  openPublishBundleFolder,
   preparePublish,
   projectName,
+  publishBundle,
   publishPreparation,
   publishPreparationLabel,
   renderFinalVideo,

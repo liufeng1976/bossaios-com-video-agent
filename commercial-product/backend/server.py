@@ -50,6 +50,7 @@ JOB_ID_RE = re.compile(r"^[0-9a-f]{32}$", re.I)
 FINAL_VIDEO_ID_RE = re.compile(r"^[0-9a-f]{32}$", re.I)
 MEDIA_ID_RE = re.compile(r"^[0-9a-f]{32}$", re.I)
 COVER_ID_RE = re.compile(r"^[0-9a-f]{32}$", re.I)
+BUNDLE_ID_RE = re.compile(r"^[0-9a-f]{32}$", re.I)
 ALLOWED_AVATAR_SUFFIXES = {".mp4", ".mov", ".webm", ".mkv"}
 MAX_VOICE_BYTES = 128 * 1024 * 1024
 MAX_AVATAR_BYTES = 2 * 1024 * 1024 * 1024
@@ -123,6 +124,17 @@ class CoverBody(BaseModel):
     color: str = Field(default="#ffffff", pattern=HEX_COLOR)
     strokeColor: str = Field(default="#000000", pattern=HEX_COLOR)
     strokeWidth: float = Field(default=3.0, ge=0, le=12)
+
+
+class PublishBundleBody(BaseModel):
+    """Everything needed to hand a finished video to a platform's own uploader."""
+
+    finalVideoUrl: str = Field(..., min_length=1, max_length=4096)
+    coverUrl: str = Field(default="", max_length=4096)
+    projectName: str | None = Field(default=None, max_length=120)
+    platform: Literal["douyin", "channels", "xiaohongshu", "kuaishou"]
+    title: str = Field(default="", max_length=200)
+    topics: str = Field(default="", max_length=500)
 
 
 class DigitalHumanBody(BaseModel):
@@ -1114,7 +1126,7 @@ def _runtime_installer_command(component: str, profile: str) -> list[str]:
         if not python_exe.is_file():
             raise HTTPException(409, "Install the BossAI private Python 3.10 runtime first.")
         script = installers / "install-whisper.ps1"
-        args = [str(script), "-TargetDir", str(runtime_root / "faster-whisper-large-v3"), "-DownloadRoot", str(download_root), "-PythonExe", str(python_exe), "-Profile", profile, "-AcceptLicense"]
+        args = [str(script), "-TargetDir", str(runtime_root / "faster-whisper-large-v3"), "-DownloadRoot", str(download_root), "-PythonExe", str(python_exe), "-Profile", profile, *_runtime_proxy_installer_args(), "-AcceptLicense"]
     else:
         raise HTTPException(404, "Unknown BossAI runtime component.")
     if not script.is_file():
@@ -2349,6 +2361,114 @@ def video_cover_file(cover_id: str):
 def final_video_file(final_video_id: str):
     path = _final_video_path(final_video_id)
     return FileResponse(path, media_type="video/mp4", filename=f"bossai-video-{final_video_id}.mp4")
+
+
+PUBLISH_UPLOAD_PAGES = {
+    "douyin": "https://creator.douyin.com/creator-micro/content/upload",
+    "channels": "https://channels.weixin.qq.com/platform/post/create",
+    "xiaohongshu": "https://creator.xiaohongshu.com/publish/publish",
+    "kuaishou": "https://cp.kuaishou.com/article/publish/video",
+}
+
+
+def _bundle_dir(bundle_id: str) -> Path:
+    if not BUNDLE_ID_RE.fullmatch(str(bundle_id or "")):
+        raise HTTPException(400, "Invalid BossAI publish bundle ID.")
+    path = (_dir("publish-bundles") / bundle_id).resolve()
+    try:
+        path.relative_to(_dir("publish-bundles").resolve())
+    except ValueError as exc:
+        raise HTTPException(403, "Publish bundle is outside the product data boundary.") from exc
+    return path
+
+
+@app.post("/api/commercial/publish/bundle")
+def create_publish_bundle(body: PublishBundleBody):
+    """Assemble everything needed to post the video, ready for manual upload.
+
+    Automated publishing stays fail-closed, so this does the next most useful
+    thing: it collects the final video, the cover and the copy into one folder
+    the customer can hand to the platform's own uploader. It performs no login
+    and contacts no platform.
+    """
+    video = _final_video_url_path(body.finalVideoUrl)
+
+    cover_path: Path | None = None
+    if body.coverUrl.strip():
+        match = re.fullmatch(r"/api/commercial/video/cover/([0-9a-f]{32})/file", body.coverUrl.strip(), re.I)
+        if not match:
+            raise HTTPException(400, "Publish bundles accept only BossAI-generated covers.")
+        cover_path = _cover_path(match.group(1))
+
+    project_name = _safe_project_name(body.projectName)
+    bundle_id = uuid.uuid4().hex
+    target = _bundle_dir(bundle_id)
+    target.mkdir(parents=True, exist_ok=True)
+
+    files: list[dict[str, Any]] = []
+    video_name = f"{project_name}.mp4"
+    shutil.copy2(video, target / video_name)
+    files.append({"name": video_name, "kind": "video", "sizeBytes": (target / video_name).stat().st_size})
+
+    if cover_path is not None:
+        cover_name = f"{project_name}-cover.png"
+        shutil.copy2(cover_path, target / cover_name)
+        files.append({"name": cover_name, "kind": "cover", "sizeBytes": (target / cover_name).stat().st_size})
+
+    platform_label = {
+        "douyin": "抖音 Douyin",
+        "channels": "视频号 WeChat Channels",
+        "xiaohongshu": "小红书 Xiaohongshu",
+        "kuaishou": "快手 Kuaishou",
+    }[body.platform]
+
+    lines = [
+        f"平台 / Platform: {platform_label}",
+        "",
+        "标题 / Title:",
+        body.title.strip() or "(未填写 / not set)",
+        "",
+        "话题标签 / Hashtags:",
+        body.topics.strip() or "(未填写 / not set)",
+        "",
+        "文件 / Files:",
+        *[f"  - {item['name']}" for item in files],
+        "",
+        "说明 / Note:",
+        "  自动发布尚未开放。请在平台官方创作者后台手动上传上述文件。",
+        "  Automated publishing is not enabled. Upload these files in the",
+        "  platform's own creator studio.",
+    ]
+    (target / "publish.txt").write_text("\n".join(lines), encoding="utf-8")
+    files.append({"name": "publish.txt", "kind": "text", "sizeBytes": (target / "publish.txt").stat().st_size})
+
+    metadata = {
+        "schema": "bossai.video-agent-publish-bundle.v1",
+        "bundleId": bundle_id,
+        "projectName": project_name,
+        "platform": body.platform,
+        "title": body.title.strip(),
+        "topics": body.topics.strip(),
+        "files": files,
+        "automatedPublishAllowed": False,
+        "uploadPage": PUBLISH_UPLOAD_PAGES[body.platform],
+    }
+    (target / "publish.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    return {"success": True, "data": {**metadata, "directory": str(target)}}
+
+
+@app.get("/api/commercial/publish/bundle/{bundle_id}")
+def publish_bundle(bundle_id: str):
+    target = _bundle_dir(bundle_id)
+    metadata_path = target / "publish.json"
+    if not metadata_path.is_file():
+        raise HTTPException(404, "BossAI publish bundle not found.")
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise HTTPException(500, "BossAI publish bundle metadata is unreadable.") from exc
+    return {"success": True, "data": {**metadata, "directory": str(target)}}
 
 
 @app.get("/api/commercial/publish/status")

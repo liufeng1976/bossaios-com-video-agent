@@ -63,13 +63,16 @@ const RUNTIME_ENV_KEYS = new Set([
   'BOSSAI_COSYVOICE_PYTHON',
   'BOSSAI_MUSETALK_ROOT',
   'BOSSAI_MUSETALK_PYTHON',
+  'BOSSAI_WHISPER_MODEL',
+  'BOSSAI_WHISPER_PYTHON',
+  'BOSSAI_WHISPER_DEVICE',
   'BOSSAI_FFMPEG_BIN',
 ])
 
 function installedRuntimeEnvironment() {
   const runtimesRoot = runtimeRoot()
   const merged = {}
-  for (const component of ['qwen2.5-7b-instruct', 'cosyvoice2-0.5b', 'musetalk']) {
+  for (const component of ['qwen2.5-7b-instruct', 'cosyvoice2-0.5b', 'musetalk', 'faster-whisper-large-v3']) {
     const manifestPath = path.join(runtimesRoot, component, 'runtime.json')
     if (!fs.existsSync(manifestPath)) continue
     try {
@@ -399,6 +402,41 @@ ipcMain.handle('bossai:export-cover-image', async (_event, payload = {}) => {
     return { exported: false, canceled: false, reason: error?.message || String(error) }
   }
 })
+const PLATFORM_UPLOAD_PAGES = Object.freeze({
+  douyin: 'https://creator.douyin.com/creator-micro/content/upload',
+  channels: 'https://channels.weixin.qq.com/platform/post/create',
+  xiaohongshu: 'https://creator.xiaohongshu.com/publish/publish',
+  kuaishou: 'https://cp.kuaishou.com/article/publish/video',
+})
+
+// Opens a bundle folder produced by the backend. The path is confined to the
+// product's own publish-bundles directory so the renderer cannot ask the shell
+// to open an arbitrary location.
+ipcMain.handle('bossai:open-publish-bundle', async (_event, directory) => {
+  const requested = path.resolve(String(directory || ''))
+  const root = path.resolve(path.join(localStateRoot(), 'publish-bundles'))
+  const relative = path.relative(root, requested)
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    return { opened: false, reason: 'outside-publish-bundle-root' }
+  }
+  if (!fs.existsSync(requested)) return { opened: false, reason: 'bundle-not-found' }
+  const error = await shell.openPath(requested)
+  return { opened: !error, reason: error || '' }
+})
+
+// Opens the platform's own creator studio in the user's browser. No credentials
+// are handled and nothing is automated: the customer uploads the bundle there.
+ipcMain.handle('bossai:open-platform-upload', async (_event, platform) => {
+  const url = PLATFORM_UPLOAD_PAGES[String(platform || '')]
+  if (!url) return { opened: false, reason: 'unknown-platform' }
+  try {
+    await shell.openExternal(url)
+    return { opened: true, url }
+  } catch (error) {
+    return { opened: false, reason: error?.message || String(error) }
+  }
+})
+
 ipcMain.handle('bossai:open-legal-document', async (_event, documentId) => {
   const filePath = resolveLegalDocument(documentId)
   if (!filePath || !fs.existsSync(filePath)) {

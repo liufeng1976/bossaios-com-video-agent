@@ -27,6 +27,8 @@ try {
       fileUrl: String(fileUrl || ''),
       suggestedName: String(suggestedName || ''),
     }),
+    openPublishBundle: (directory) => ipcRenderer.invoke('bossai:open-publish-bundle', String(directory || '')),
+    openPlatformUpload: (platform) => ipcRenderer.invoke('bossai:open-platform-upload', String(platform || '')),
     openLegalDocument: (documentId) => ipcRenderer.invoke('bossai:open-legal-document', String(documentId || '')),
   }))
 

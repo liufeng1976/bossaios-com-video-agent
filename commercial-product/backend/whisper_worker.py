@@ -17,6 +17,34 @@ import pathlib
 import sys
 
 
+def _cuda_usable() -> bool:
+    """Report whether CUDA can actually run inference, not merely load a model.
+
+    CTranslate2 builds the model on a CUDA device happily and only needs the
+    cuDNN ops library once inference starts. When cuDNN is missing the process
+    aborts inside native code, which no Python ``except`` can catch — so the
+    only reliable option is to refuse CUDA up front rather than fall back after
+    the fact.
+    """
+    try:
+        import ctranslate2
+
+        if ctranslate2.get_cuda_device_count() <= 0:
+            return False
+    except Exception:  # noqa: BLE001 - absent or unusable CUDA build
+        return False
+
+    import ctypes
+
+    for candidate in ("cudnn_ops64_9.dll", "libcudnn_ops.so.9", "libcudnn_ops.so"):
+        try:
+            ctypes.CDLL(candidate)
+            return True
+        except OSError:
+            continue
+    return False
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="BossAI local Whisper transcription worker")
     parser.add_argument("--model", required=True)
@@ -40,35 +68,43 @@ def main() -> int:
 
     from faster_whisper import WhisperModel
 
-    device = args.device if args.device in {"auto", "cpu", "cuda"} else "auto"
-    # int8 on CPU keeps a large-v3 transcription tractable on a laptop; float16
-    # is used when a CUDA device is actually available.
+    requested = args.device if args.device in {"auto", "cpu", "cuda"} else "auto"
+    language = args.language.strip() or None
+
+    def run(device: str, compute_type: str):
+        """Load and transcribe on one device, forcing every error to surface here.
+
+        transcribe() returns a generator, so a GPU that constructs fine but
+        cannot run (for example CUDA present without cuDNN) only fails while the
+        segments are consumed. Materialising them inside this call is what makes
+        the CPU fallback below actually reachable.
+        """
+        model = WhisperModel(str(model_dir), device=device, compute_type=compute_type)
+        segments, info = model.transcribe(str(source), language=language, vad_filter=True, beam_size=5)
+        return list(segments), info
+
+    attempts = []
+    if requested in {"auto", "cuda"} and _cuda_usable():
+        attempts.append(("cuda", "float16"))
+    attempts.append(("cpu", "int8"))
+
+    device = ""
+    raw_segments = None
+    info = None
     last_error: Exception | None = None
-    model = None
-    for candidate_device, compute_type in (
-        (device, "float16" if device in {"auto", "cuda"} else "int8"),
-        ("cpu", "int8"),
-    ):
+    for candidate_device, compute_type in attempts:
         try:
-            model = WhisperModel(str(model_dir), device=candidate_device, compute_type=compute_type)
+            raw_segments, info = run(candidate_device, compute_type)
             device = candidate_device
             break
-        except Exception as exc:  # noqa: BLE001 - fall back to CPU on any GPU failure
+        except Exception as exc:  # noqa: BLE001 - any GPU failure must fall back to CPU
             last_error = exc
-    if model is None:
-        print(json.dumps({"error": f"model load failed: {last_error}"}), file=sys.stderr)
+    if raw_segments is None:
+        print(json.dumps({"error": f"transcription failed: {last_error}"}), file=sys.stderr)
         return 3
 
-    language = args.language.strip() or None
-    segments, info = model.transcribe(
-        str(source),
-        language=language,
-        vad_filter=True,
-        beam_size=5,
-    )
-
     items = []
-    for segment in segments:
+    for segment in raw_segments:
         text = (segment.text or "").strip()
         if not text:
             continue

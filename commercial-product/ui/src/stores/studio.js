@@ -6,6 +6,7 @@ import { computed, reactive, ref, watch } from 'vue'
 
 import {
   createCover,
+  createPublishBundle,
   deleteBgm,
   generateCoverTitle,
   generateTitle,
@@ -97,6 +98,9 @@ export const mediaUploading = ref(false)
 export const coverUrl = ref('')
 export const coverDownloadName = ref('')
 export const coverBusy = ref(false)
+
+/** Ready-to-upload bundle: video + cover + copy in one folder. */
+export const publishBundle = ref(null)
 
 export const form = reactive({
   sourceText: '',
@@ -201,6 +205,7 @@ function invalidateFrom(stage) {
   finalDownloadName.value = ''
   coverUrl.value = ''
   coverDownloadName.value = ''
+  publishBundle.value = null
   renderSummary.value = null
   renderProgress.value = 0
   publishPreparation.value = null
@@ -523,6 +528,49 @@ export async function exportCover() {
     error.value = e?.message || tr('封面导出失败', 'Cover export failed')
   } finally {
     coverBusy.value = false
+  }
+}
+
+export const desktopBundleAvailable = computed(() => Boolean(globalThis?.bossaiDesktop?.openPublishBundle))
+
+/**
+ * Collect everything needed to post the video into one folder.
+ *
+ * This is the compliant substitute for automated publishing: it saves the
+ * upload a round of retyping without touching platform credentials.
+ */
+export async function makePublishBundle() {
+  await run(async () => {
+    const result = await createPublishBundle({
+      finalVideoUrl: finalVideoUrl.value,
+      coverUrl: coverUrl.value,
+      projectName: projectName.value,
+      platform: form.platform,
+      title: title.value,
+      topics: topics.value,
+    })
+    publishBundle.value = result
+    message.value = tr('发布包已生成，可打开文件夹并前往平台官方后台上传。', 'Publish bundle created. Open the folder and upload it in the official creator studio of the platform.')
+  }, 'bundle').catch(() => {})
+}
+
+export async function openPublishBundleFolder() {
+  const directory = publishBundle.value?.directory
+  if (!directory) return
+  try {
+    const result = await globalThis?.bossaiDesktop?.openPublishBundle?.(directory)
+    if (!result?.opened) throw new Error(result?.reason || tr('无法打开发布包目录', 'Unable to open the bundle folder'))
+  } catch (e) {
+    error.value = e?.message || tr('无法打开发布包目录', 'Unable to open the bundle folder')
+  }
+}
+
+export async function openPlatformUploadPage() {
+  try {
+    const result = await globalThis?.bossaiDesktop?.openPlatformUpload?.(form.platform)
+    if (!result?.opened) throw new Error(result?.reason || tr('无法打开平台上传页', 'Unable to open the platform uploader'))
+  } catch (e) {
+    error.value = e?.message || tr('无法打开平台上传页', 'Unable to open the platform uploader')
   }
 }
 

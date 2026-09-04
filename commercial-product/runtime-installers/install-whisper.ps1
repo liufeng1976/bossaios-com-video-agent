@@ -3,6 +3,8 @@ param(
   [string]$TargetDir = "",
   [string]$PythonExe = "",
   [string]$DownloadRoot = "",
+  [string]$ProxyUrl = "",
+  [string]$DownloadProxyUrl = "",
   [ValidateSet('gpu','cpu')][string]$Profile = 'gpu',
   [string]$ModelSourceDir = "",
   [switch]$AcceptLicense
@@ -13,6 +15,15 @@ $ProgressPreference = 'SilentlyContinue'
 Set-StrictMode -Version Latest
 
 if (-not $AcceptLicense) { throw 'faster-whisper and Whisper model license notices must be reviewed and accepted before installation.' }
+
+if ($ProxyUrl) {
+  $env:HTTP_PROXY = $ProxyUrl
+  $env:HTTPS_PROXY = $ProxyUrl
+  $env:ALL_PROXY = $ProxyUrl
+  Write-Output "BOSSAI_STEP HTTP proxy enabled for pip: $ProxyUrl"
+}
+if (-not $DownloadProxyUrl) { $DownloadProxyUrl = $ProxyUrl }
+if ($DownloadProxyUrl) { Write-Output "BOSSAI_STEP Download proxy enabled for curl: $DownloadProxyUrl" }
 
 $lockPath = Join-Path $PSScriptRoot 'runtime-source-lock.json'
 $lock = Get-Content -LiteralPath $lockPath -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -51,19 +62,53 @@ function Verify-Hash([string]$Path, [string]$Expected, [string]$Label) {
   if ($actual -ne ([string]$Expected).ToLowerInvariant()) { throw "$Label SHA-256 mismatch. Expected $Expected, got $actual" }
 }
 
-function Download-Verified([string]$Url, [string]$Destination, [string]$ExpectedHash, [string]$Label) {
-  if (Test-Path -LiteralPath $Destination -PathType Leaf) {
-    try { Verify-Hash $Destination $ExpectedHash $Label; return } catch { Remove-Item -LiteralPath $Destination -Force -ErrorAction SilentlyContinue }
-  }
-  Write-Output "BOSSAI_STEP Download $Label"
-  $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
-  if ($curl) {
-    & $curl.Source -L --fail --retry 5 --retry-delay 2 --continue-at - -o $Destination $Url
-    if ($LASTEXITCODE -ne 0) { throw "$Label download failed with exit code $LASTEXITCODE" }
+function Invoke-Download([string]$Url, [string]$Destination) {
+  if ($DownloadProxyUrl) {
+    Invoke-WebRequest -Uri $Url -OutFile $Destination -UseBasicParsing -Proxy $DownloadProxyUrl
   } else {
     Invoke-WebRequest -Uri $Url -OutFile $Destination -UseBasicParsing
   }
-  Verify-Hash $Destination $ExpectedHash $Label
+}
+
+function Download-Verified([string]$Url, [string]$Destination, [string]$ExpectedHash, [string]$Label) {
+  if (Test-Path -LiteralPath $Destination -PathType Leaf) {
+    try { Verify-Hash $Destination $ExpectedHash $Label; Write-Output "BOSSAI_STEP Reuse verified $Label"; return } catch { Write-Output "BOSSAI_STEP Resume $Label" }
+  } else {
+    Write-Output "BOSSAI_STEP Download $Label"
+  }
+  $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
+  if (-not $curl) {
+    Invoke-Download $Url $Destination
+    Verify-Hash $Destination $ExpectedHash $Label
+    return
+  }
+
+  # The model is multi-gigabyte, so resume rather than restart when a proxy or
+  # the network drops the connection, and keep the partial file for the retry.
+  $maxAttempts = 80
+  for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+    $before = if (Test-Path -LiteralPath $Destination -PathType Leaf) { (Get-Item -LiteralPath $Destination).Length } else { 0 }
+    $curlArgs = @('-L','--fail','--continue-at','-','-o',$Destination)
+    if ($DownloadProxyUrl) { $curlArgs += @('--proxy',$DownloadProxyUrl) }
+    $curlArgs += $Url
+    & $curl.Source @curlArgs
+    $curlExit = $LASTEXITCODE
+    if (Test-Path -LiteralPath $Destination -PathType Leaf) {
+      try {
+        Verify-Hash $Destination $ExpectedHash $Label
+        Write-Output "BOSSAI_STEP Verified $Label after attempt $attempt"
+        return
+      } catch {
+        $after = (Get-Item -LiteralPath $Destination).Length
+        Write-Output "BOSSAI_STEP Partial $Label attempt=$attempt exit=$curlExit bytes=$after"
+        if ($after -le $before -and $curlExit -ne 0) { Start-Sleep -Seconds 2 }
+      }
+    } else {
+      Write-Output "BOSSAI_STEP No file produced for $Label attempt=$attempt exit=$curlExit"
+      Start-Sleep -Seconds 2
+    }
+  }
+  throw "$Label download did not reach the pinned SHA-256 after $maxAttempts resumable attempts. Partial file was preserved: $Destination"
 }
 
 function Commit-Install([string]$StagingDir, [string]$FinalDir) {
@@ -127,13 +172,11 @@ try {
   }
 
   $modelLicense = Join-Path $licensesDir 'faster-whisper-large-v3-MODEL-CARD.md'
-  Invoke-WebRequest -UseBasicParsing -OutFile $modelLicense `
-    -Uri "https://huggingface.co/$([string]$whisper.repository)/resolve/$([string]$whisper.revision)/README.md?download=true"
+  Invoke-Download "https://huggingface.co/$([string]$whisper.repository)/resolve/$([string]$whisper.revision)/README.md?download=true" $modelLicense
   if (-not (Test-Path -LiteralPath $modelLicense -PathType Leaf)) { throw 'Whisper model license evidence download failed.' }
 
   $packageLicense = Join-Path $licensesDir 'faster-whisper-LICENSE.txt'
-  Invoke-WebRequest -UseBasicParsing -OutFile $packageLicense `
-    -Uri 'https://raw.githubusercontent.com/SYSTRAN/faster-whisper/master/LICENSE'
+  Invoke-Download 'https://raw.githubusercontent.com/SYSTRAN/faster-whisper/master/LICENSE' $packageLicense
   if (-not (Test-Path -LiteralPath $packageLicense -PathType Leaf)) { throw 'faster-whisper package license evidence download failed.' }
 
   # Prove the runtime loads the pinned model locally before committing. The probe
