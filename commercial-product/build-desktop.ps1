@@ -15,6 +15,21 @@ $backend = Join-Path $root 'backend'
 $engine = Join-Path $backend 'BossAI Video Engine.exe'
 $output = Join-Path $desktop 'dist'
 
+# Repository-root documents that package.json declares under extraResources as
+# '../../<name>'. They must all be staged at the temp build root, or
+# electron-builder silently warns "file source doesn't exist" and ships an
+# installer whose in-app Legal screen shows the documents as unavailable.
+$repoRoot = Split-Path -Parent $root
+$rootLegalDocuments = @(
+  'LICENSE',
+  'COMMERCIAL_LICENSE.md',
+  'EULA.md',
+  'LICENSE-HISTORICAL-MIT.md',
+  'TERMS.md',
+  'PRIVACY.md',
+  'INSTALL.md'
+)
+
 foreach ($required in @(
   (Join-Path $desktop 'package.json'),
   (Join-Path $desktop 'main.cjs'),
@@ -24,11 +39,9 @@ foreach ($required in @(
   $engine,
   (Join-Path $root 'customer-product-metadata.json'),
   (Join-Path $root 'customer-third-party-notices.json'),
-  (Join-Path (Split-Path -Parent $root) 'LICENSE'),
-  (Join-Path (Split-Path -Parent $root) 'COMMERCIAL_LICENSE.md'),
   (Join-Path $root 'runtime-installers\runtime-source-lock.json'),
   (Join-Path $root 'legal\capture-python-runtime-notices.py')
-)) {
+) + ($rootLegalDocuments | ForEach-Object { Join-Path $repoRoot $_ })) {
   if (-not (Test-Path -LiteralPath $required)) {
     throw "Required BossAI desktop build input is missing: $required"
   }
@@ -51,8 +64,9 @@ try {
   Copy-Item -LiteralPath (Join-Path $root 'runtime-installers') -Destination $tempProduct -Recurse
   Copy-Item -LiteralPath (Join-Path $root 'customer-product-metadata.json') -Destination $tempProduct
   Copy-Item -LiteralPath (Join-Path $root 'customer-third-party-notices.json') -Destination $tempProduct
-  Copy-Item -LiteralPath (Join-Path (Split-Path -Parent $root) 'LICENSE') -Destination $temp
-  Copy-Item -LiteralPath (Join-Path (Split-Path -Parent $root) 'COMMERCIAL_LICENSE.md') -Destination $temp
+  foreach ($document in $rootLegalDocuments) {
+    Copy-Item -LiteralPath (Join-Path $repoRoot $document) -Destination $temp
+  }
   Copy-Item -LiteralPath (Join-Path $root 'legal\capture-python-runtime-notices.py') -Destination (Join-Path $tempProduct 'legal')
 
   Push-Location $tempDesktop
@@ -82,6 +96,26 @@ try {
   $built = Join-Path $tempDesktop 'dist'
   if (-not (Test-Path -LiteralPath $built)) {
     throw 'electron-builder did not produce a dist directory.'
+  }
+
+  # electron-builder only warns when an extraResources source is missing, so the
+  # customer legal bundle is asserted here instead of trusting a clean exit code.
+  $unpackedLegal = Join-Path $built 'win-unpacked\resources\legal'
+  $requiredLegalArtifacts = @(
+    'EULA.md',
+    'SOURCE-LICENSE.txt',
+    'HISTORICAL-MIT-LICENSE.md',
+    'COMMERCIAL-LICENSE.md',
+    'TERMS.md',
+    'PRIVACY.md',
+    'INSTALL.md',
+    'third-party-notices.json'
+  )
+  $missingLegal = @($requiredLegalArtifacts | Where-Object {
+    -not (Test-Path -LiteralPath (Join-Path $unpackedLegal $_))
+  })
+  if ($missingLegal.Count -gt 0) {
+    throw "Packaged customer legal bundle is incomplete: $($missingLegal -join ', ')"
   }
   if (Test-Path -LiteralPath $output) {
     Remove-Item -LiteralPath $output -Recurse -Force

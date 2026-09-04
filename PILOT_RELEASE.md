@@ -5,7 +5,7 @@ Status: **INTERNAL PILOT READY — NOT GA / NOT PUBLIC COMMERCIAL RELEASE**
 ## Pilot artifact
 
 - Installer: `BossAI-Video-Agent-0.1.0-Setup.exe`
-- SHA-256: `e91706f5cd3ed74ca4e7c5c0640a9d14d8b8b30daf2e3b737c86f809762ce9c2`
+- SHA-256: `3c79b938621d93456e43204c2fc0b7d1231967226b3ee695649d2e2a77132582`
 - Authenticode: `NotSigned`
 - Expected Windows behavior: SmartScreen or other security warnings may appear because the Pilot build is unsigned.
 

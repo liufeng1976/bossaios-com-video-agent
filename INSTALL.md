@@ -8,7 +8,7 @@
 
 ### Internal Pilot / 内部测试版
 
-当前 `0.1.0` 已通过 Internal Pilot machine gate，但尚未通过 GA 商业发布 gate。当前 Pilot 安装包为 `BossAI-Video-Agent-0.1.0-Setup.exe`，SHA-256：`e91706f5cd3ed74ca4e7c5c0640a9d14d8b8b30daf2e3b737c86f809762ce9c2`。应用和安装包当前均为 **NotSigned**，Windows 可能显示 SmartScreen/安全警告。该版本仅用于内部 Pilot，不得宣称为已签名、已完成商业授权 UAT 或 GA 客户正式版。
+当前 `0.1.0` 已通过 Internal Pilot machine gate，但尚未通过 GA 商业发布 gate。当前 Pilot 安装包为 `BossAI-Video-Agent-0.1.0-Setup.exe`，SHA-256：`3c79b938621d93456e43204c2fc0b7d1231967226b3ee695649d2e2a77132582`。应用和安装包当前均为 **NotSigned**，Windows 可能显示 SmartScreen/安全警告。该版本仅用于内部 Pilot，不得宣称为已签名、已完成商业授权 UAT 或 GA 客户正式版。
 
 ### 正式安装
 
@@ -52,7 +52,7 @@ Windows 10/11 x64 is the primary target. Use the official BossAI installer attac
 
 ### Internal Pilot
 
-Version `0.1.0` currently passes the Internal Pilot machine gate but not the GA commercial-release gate. The Pilot installer is `BossAI-Video-Agent-0.1.0-Setup.exe`, SHA-256 `e91706f5cd3ed74ca4e7c5c0640a9d14d8b8b30daf2e3b737c86f809762ce9c2`. Both the application and installer are currently **NotSigned**, so Windows SmartScreen/security warnings may appear. This build is for Internal Pilot only and must not be represented as signed, Business-UAT-approved, or customer-ready GA.
+Version `0.1.0` currently passes the Internal Pilot machine gate but not the GA commercial-release gate. The Pilot installer is `BossAI-Video-Agent-0.1.0-Setup.exe`, SHA-256 `3c79b938621d93456e43204c2fc0b7d1231967226b3ee695649d2e2a77132582`. Both the application and installer are currently **NotSigned**, so Windows SmartScreen/security warnings may appear. This build is for Internal Pilot only and must not be represented as signed, Business-UAT-approved, or customer-ready GA.
 
 ### Formal install
 
