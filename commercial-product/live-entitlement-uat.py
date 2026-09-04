@@ -16,6 +16,7 @@ import bossai_os_bridge
 PRODUCT_ID = "bossai-video-agent"
 PRODUCT_VERSION = "0.1.0"
 SCHEMA = "bossai.video-agent-live-entitlement-evidence.v1"
+EXPECTED_ENTITLEMENT_SCHEMA = "bossai.commercial-entitlement.v1"
 
 
 def now_iso() -> str:
@@ -96,7 +97,8 @@ def main() -> int:
         paid_execution_allowed = bool(entitlement.get("canCreatePaidAiTasks"))
         business_use_allowed = bool(entitlement.get("canUseLocalBusinessProduct"))
         verified = bool(
-            raw.get("schemaVersion") == bossai_os_bridge.ENTITLEMENT_SCHEMA
+            raw.get("schemaVersion") == EXPECTED_ENTITLEMENT_SCHEMA
+            and bossai_os_bridge.ENTITLEMENT_SCHEMA == EXPECTED_ENTITLEMENT_SCHEMA
             and authority.get("authority") == "bossai-headquarters-commerce"
             and license_active
             and paid_execution_allowed

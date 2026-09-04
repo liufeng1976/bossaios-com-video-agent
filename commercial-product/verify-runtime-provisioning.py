@@ -33,8 +33,19 @@ def main() -> int:
     capture_notices_path = HERE / "legal" / "capture-python-runtime-notices.py"
     muse_requirements_path = INSTALLERS / "musetalk-windows-requirements.txt"
     migration_script_path = INSTALLERS / "migrate-runtime-storage.ps1"
+    entitlement_uat_path = HERE / "live-entitlement-uat.py"
+    musetalk_uat_path = HERE / "musetalk-live-uat.py"
 
-    for path in (lock_path, inventory_path, notices_path, capture_notices_path, muse_requirements_path, migration_script_path):
+    for path in (
+        lock_path,
+        inventory_path,
+        notices_path,
+        capture_notices_path,
+        muse_requirements_path,
+        migration_script_path,
+        entitlement_uat_path,
+        musetalk_uat_path,
+    ):
         require(path.is_file(), f"missing runtime governance file: {path.name}", failures)
     if failures:
         print(json.dumps({"status": "failed", "failures": failures}, ensure_ascii=False, indent=2))
@@ -194,6 +205,29 @@ def main() -> int:
     migration_text = migration_script_path.read_text(encoding="utf-8-sig", errors="strict")
     for marker in ("runtime-storage.json", "RemoveSourceAfterVerify", "verify-installed-runtime-notices.py", ".installing-", "robocopy.exe"):
         require(marker in migration_text, f"runtime storage migration safety marker missing: {marker}", failures)
+
+    entitlement_uat_text = entitlement_uat_path.read_text(encoding="utf-8-sig", errors="strict")
+    for marker in (
+        "bossai.video-agent-live-entitlement-evidence.v1",
+        "bossai.commercial-entitlement.v1",
+        "BOSSAI_ACCOUNT_NOT_AUTHENTICATED",
+        "paidExecutionAllowed",
+        "businessUseAllowed",
+    ):
+        require(marker in entitlement_uat_text, f"live entitlement UAT safety marker missing: {marker}", failures)
+
+    musetalk_uat_text = musetalk_uat_path.read_text(encoding="utf-8-sig", errors="strict")
+    for marker in (
+        "bossai.video-agent-musetalk-commercial-uat.v1",
+        "--rights-affirmed",
+        "customer-authorized",
+        "bossai-owned",
+        "inputPathsPersisted",
+        "renderAttempted",
+        "authorizedMediaUsed",
+        "ffprobe",
+    ):
+        require(marker in musetalk_uat_text, f"MuseTalk live UAT safety marker missing: {marker}", failures)
 
     scripts: dict[str, str] = {}
     for name, markers in script_requirements.items():

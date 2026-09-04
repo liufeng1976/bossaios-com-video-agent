@@ -111,6 +111,7 @@ Current BossAI-owned source is distributed under `BossAI Community Source Licens
 - `INSTALL.md` — Windows installation / Windows 安装
 - `RELEASE_NOTES.md` — Release notes / 版本说明
 - `commercial-product/legal/LEGAL_RELEASE_CHECKLIST.md` — GA legal approval checklist / GA 法律批准清单
+- `commercial-product/GA_UAT_RUNBOOK.md` — real Business/MuseTalk/signing/legal GA evidence runbook / 真实 Business、MuseTalk、签名与法律 GA 证据执行手册
 - `PILOT_RELEASE.md` — Internal Pilot scope, limitations and verification / 内部 Pilot 范围、限制与验收
 - `PILOT_SHA256SUMS.txt` — exact Pilot artifact checksums / Pilot 精确文件校验值
 - `VERIFY_PILOT.ps1` — local Pilot installer SHA/signature verifier / Pilot 安装包本机校验脚本
