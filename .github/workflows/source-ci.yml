@@ -1,0 +1,85 @@
+name: BossAI Video Agent source CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-source:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install backend dependencies
+        shell: pwsh
+        run: python -m pip install -r commercial-product/backend/requirements.txt
+
+      - name: Install UI dependencies
+        shell: pwsh
+        working-directory: commercial-product/ui
+        run: npm install
+
+      - name: Build UI
+        shell: pwsh
+        working-directory: commercial-product/ui
+        run: npm run build
+
+      - name: Validate backend import
+        shell: pwsh
+        run: |
+          python -c "import sys; sys.path.insert(0,'commercial-product/backend'); import server; assert server.PRODUCT_ID == 'bossai-video-agent'; print('BACKEND_IMPORT_OK')"
+
+      - name: Validate Free Personal and commercial fail-closed policy
+        shell: pwsh
+        run: python commercial-product/backend/feature-entitlement-smoke-test.py
+
+      - name: Validate runtime source locks
+        shell: pwsh
+        run: python commercial-product/verify-runtime-provisioning.py
+
+      - name: Validate source repository boundary
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $forbiddenExtensions = @('.gguf','.safetensors','.ckpt','.pth','.pt','.onnx','.bin','.exe','.dll')
+          $violations = @()
+          foreach ($path in (git ls-files)) {
+            $normalized = $path.Replace('\\','/')
+            if ($normalized.StartsWith('commercial-product/desktop/dist/')) { $violations += $normalized; continue }
+            if ($normalized.StartsWith('commercial-product/ui/dist/')) { $violations += $normalized; continue }
+            $ext = [IO.Path]::GetExtension($normalized).ToLowerInvariant()
+            if ($forbiddenExtensions -contains $ext) { $violations += $normalized; continue }
+            if ($normalized -match '(^|/)(key|token|cookie|session|activation)\.(txt|json|env)$') { $violations += $normalized }
+          }
+          if ($violations.Count -gt 0) {
+            $violations | ForEach-Object { Write-Host "FORBIDDEN: $_" }
+            throw 'Public source tree contains forbidden binary/model/credential material.'
+          }
+
+      - name: Validate source license policy
+        shell: pwsh
+        run: |
+          $license = Get-Content LICENSE -Raw
+          if (-not $license.Contains('Personal / Non-Commercial Grant')) { throw 'Current source license is missing the personal/non-commercial grant.' }
+          if (-not $license.Contains('Commercial Use Requires BossAI Authorization')) { throw 'Current source license is missing the commercial authorization rule.' }
+          if (-not (Test-Path LICENSE-HISTORICAL-MIT.md)) { throw 'Historical MIT notice is missing.' }
+
+      - name: Git whitespace check
+        shell: pwsh
+        run: git diff --check HEAD^

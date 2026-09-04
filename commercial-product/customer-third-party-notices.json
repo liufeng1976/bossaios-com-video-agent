@@ -34,10 +34,13 @@
     {
       "id": "musetalk",
       "role": "digital-human-lipsync",
-      "license": "MIT",
+      "license": "mixed",
+      "sourceLicense": "MIT",
+      "trainedModelDeclaredLicense": "creativeml-openrail-m",
+      "dependencyModelLicenses": ["MIT", "Apache-2.0", "openrail++", "WTFPL"],
       "noticeRequired": true,
-      "redistributionStatus": "approved-subject-to-license-notice",
-      "restriction": "Do not ship upstream test/demo people, voices or media as customer assets. Customer production requires authorized customer or BossAI-owned media."
+      "redistributionStatus": "approved-subject-to-all-model-and-source-license-notices",
+      "restriction": "Ship the pinned MuseTalk source/model and dependency-model license evidence with the installed runtime. Do not ship upstream test/demo people, voices or media as customer assets. Customer production requires authorized customer or BossAI-owned media."
     }
   ]
 }

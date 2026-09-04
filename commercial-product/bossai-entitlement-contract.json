@@ -1,30 +1,36 @@
 {
-  "schemaVersion": "bossai.video-agent-commercial-control.v1",
+  "schemaVersion": "bossai.video-agent-commercial-control.v3",
   "product": {
     "id": "bossai-video-agent",
-    "version": "0.1.0"
+    "displayName": "BossAI Video Agent",
+    "version": "0.1.0",
+    "distributionModel": "public-source-dual-license"
   },
+  "tiers": ["free-personal", "personal-pro", "business"],
   "authority": {
-    "commercial": "bossai-headquarters-commerce",
-    "agentPlatform": "bossai-os",
-    "entitlementSchema": "bossai.commercial-entitlement.v1"
+    "account": "bossai-headquarters-commerce",
+    "subscription": "bossai-headquarters-commerce",
+    "license": "bossai-headquarters-commerce",
+    "points": "bossai-headquarters-commerce",
+    "quota": "bossai-headquarters-commerce",
+    "deviceBinding": "bossai-headquarters-commerce",
+    "entitlementSchema": "bossai.commercial-entitlement.v1",
+    "agentPlatform": "bossai-os"
   },
   "request": {
     "bossaiOsEndpoint": "/api/customer-experience/commercial-entitlement",
-    "headers": [
-      "x-bossai-product-id",
-      "x-bossai-installation-id",
-      "x-bossai-product-version"
-    ]
+    "headers": ["x-bossai-product-id", "x-bossai-installation-id", "x-bossai-product-version"]
   },
-  "requiredProductHeaders": {
-    "x-bossai-product-id": "bossai-video-agent",
-    "x-bossai-product-version": "0.1.0"
+  "billingModes": {
+    "bossai_points": "BossAI AI Gateway / governed services settle through Headquarters Points authority.",
+    "customer_byok": "Provider cost is customer-funded, but product entitlement and product-level quota still apply; BYOK is never a bypass."
   },
-  "failClosedRules": [
-    "No paid AI execution may be treated as authorized when entitlement cannot be verified.",
-    "Headquarters entitlement cannot control customer-local content, roles, workflows or business actions.",
-    "Passwords, verification codes, provider keys and customer content must never be stored in entitlement cache.",
-    "A missing BossAI OS/headquarters connection must be shown as unavailable, never as active entitlement."
+  "hardRules": [
+    "The Video Agent must never create a local authoritative plan, points, quota, subscription, license or device-binding ledger.",
+    "Free Personal and Personal Pro are personal-use tiers; Business is required for commercial use.",
+    "A missing or unverified BossAI entitlement must fail closed for Gateway execution, Personal Pro/Business benefits and all commercial-use authorization. Local Free Personal core execution remains available for personal/non-commercial use after license acceptance.",
+    "Customer-local data and already generated files remain readable/exportable when commercial services are unavailable.",
+    "Passwords, verification codes, Provider keys and customer content must never be stored in entitlement cache.",
+    "Historical MIT grants for already published revisions remain valid; current BossAI-owned source uses the BossAI Community Source License and commercial use requires BossAI authorization."
   ]
 }

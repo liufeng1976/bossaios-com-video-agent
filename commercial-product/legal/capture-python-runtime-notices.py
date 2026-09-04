@@ -21,6 +21,46 @@ def safe_name(value: str) -> str:
     return cleaned or "unknown"
 
 
+def canonical_name(value: str) -> str:
+    return re.sub(r"[-_.]+", "-", value.strip()).lower()
+
+
+def load_supplements(manifest_path: Path | None) -> dict[tuple[str, str], dict[str, object]]:
+    if manifest_path is None:
+        return {}
+    manifest_path = manifest_path.expanduser().resolve()
+    payload = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
+    if payload.get("schema") != "bossai.video-agent-python-license-supplements.v1":
+        raise RuntimeError(f"unsupported supplemental license manifest: {manifest_path}")
+    base = manifest_path.parent.resolve()
+    result: dict[tuple[str, str], dict[str, object]] = {}
+    for entry in payload.get("entries") or []:
+        name = str(entry.get("name") or "").strip()
+        version = str(entry.get("version") or "").strip()
+        relative = Path(str(entry.get("path") or ""))
+        expected = str(entry.get("sha256") or "").strip().lower()
+        if not name or not version or not relative.parts or not expected:
+            raise RuntimeError(f"invalid supplemental license entry in {manifest_path}: {entry!r}")
+        source = (base / relative).resolve()
+        try:
+            source.relative_to(base)
+        except ValueError as exc:
+            raise RuntimeError(f"supplemental license escapes manifest directory: {relative}") from exc
+        if not source.is_file():
+            raise RuntimeError(f"supplemental license file is missing: {source}")
+        actual = sha256(source)
+        if actual != expected:
+            raise RuntimeError(f"supplemental license SHA-256 mismatch for {name}=={version}: {actual}")
+        key = (canonical_name(name), version)
+        if key in result:
+            raise RuntimeError(f"duplicate supplemental license entry for {name}=={version}")
+        result[key] = {
+            **entry,
+            "sourcePath": source,
+        }
+    return result
+
+
 def license_metadata(dist: metadata.Distribution) -> dict[str, object]:
     meta = dist.metadata
     classifiers = [str(item) for item in (meta.get_all("Classifier") or []) if "License" in str(item)]
@@ -65,6 +105,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Capture license/notice evidence from the exact active Python environment.")
     parser.add_argument("--component", required=True)
     parser.add_argument("--out", required=True)
+    parser.add_argument("--supplemental-license-manifest", default="")
+    parser.add_argument("--require-complete", action="store_true")
     args = parser.parse_args()
 
     out = Path(args.out).expanduser().resolve()
@@ -74,8 +116,10 @@ def main() -> int:
         shutil.rmtree(python_out)
     python_out.mkdir(parents=True, exist_ok=True)
 
+    supplements = load_supplements(Path(args.supplemental_license_manifest) if args.supplemental_license_manifest else None)
     records: list[dict[str, object]] = []
     missing_text: list[str] = []
+    supplements_used: list[str] = []
     for dist in sorted(metadata.distributions(), key=lambda item: (str(item.metadata.get("Name") or "").lower(), item.version)):
         name = str(dist.metadata.get("Name") or "unknown").strip() or "unknown"
         version = str(dist.version or "").strip()
@@ -93,6 +137,24 @@ def main() -> int:
                 "sha256": sha256(target),
                 "bytes": target.stat().st_size,
             })
+        supplemental_used = False
+        if not copied:
+            supplement = supplements.get((canonical_name(name), version))
+            if supplement:
+                source = Path(supplement["sourcePath"])
+                target = destination / f"SUPPLEMENTAL-{source.name}"
+                shutil.copy2(source, target)
+                copied.append({
+                    "path": target.relative_to(out).as_posix(),
+                    "sha256": sha256(target),
+                    "bytes": target.stat().st_size,
+                    "sourceType": "pinned-upstream-supplement",
+                    "sourceUrl": str(supplement.get("sourceUrl") or ""),
+                    "sourceSha256": str(supplement.get("sha256") or ""),
+                    "declaredLicense": str(supplement.get("license") or ""),
+                })
+                supplemental_used = True
+                supplements_used.append(f"{name}=={version}")
         license_info = license_metadata(dist)
         has_license_metadata = any([
             license_info["license"],
@@ -108,6 +170,7 @@ def main() -> int:
             "licenseFiles": copied,
             "licenseMetadataPresent": bool(has_license_metadata),
             "licenseTextPresent": bool(copied),
+            "supplementalLicenseUsed": supplemental_used,
         })
 
     report = {
@@ -120,19 +183,25 @@ def main() -> int:
         "distributionCount": len(records),
         "completeLicenseTextCoverage": not missing_text,
         "distributionsMissingEmbeddedLicenseText": missing_text,
+        "supplementalLicenseManifest": str(Path(args.supplemental_license_manifest).expanduser().resolve()) if args.supplemental_license_manifest else None,
+        "supplementalLicensesUsed": supplements_used,
         "distributions": records,
     }
     report_path = out / "python-dependency-notices.json"
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    complete = not missing_text
     print(json.dumps({
-        "status": "passed",
+        "status": "passed" if complete else "incomplete",
         "component": args.component,
         "distributionCount": len(records),
         "missingEmbeddedLicenseTextCount": len(missing_text),
         "report": str(report_path),
     }, ensure_ascii=False, indent=2))
-    print("RESULT: Python runtime notice snapshot captured from the exact active environment.")
-    return 0
+    if complete:
+        print("RESULT: Python runtime notice snapshot captured with complete license-text coverage.")
+    else:
+        print("RESULT: Python runtime notice snapshot is incomplete; missing license text remains.")
+    return 0 if complete or not args.require_complete else 2
 
 
 if __name__ == "__main__":

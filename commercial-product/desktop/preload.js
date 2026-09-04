@@ -17,6 +17,7 @@ try {
     platform: 'win32',
     localControlToken,
     legalStatus: () => ipcRenderer.invoke('bossai:legal-status'),
+    openUpgrade: () => ipcRenderer.invoke('bossai:open-upgrade'),
     exportFinalVideo: (fileUrl, suggestedName) => ipcRenderer.invoke('bossai:export-final-video', {
       fileUrl: String(fileUrl || ''),
       suggestedName: String(suggestedName || ''),

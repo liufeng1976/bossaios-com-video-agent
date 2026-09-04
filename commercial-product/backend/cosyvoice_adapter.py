@@ -56,6 +56,12 @@ def render(*, text: str, reference_audio: Path, output_dir: Path, worker_path: P
     assert repo and model and python_exe
 
     env = os.environ.copy()
+    # The voice worker can use a separately installed Python runtime. Do not
+    # leak the parent process's Python package roots into that interpreter:
+    # a Python 3.10 CosyVoice worker must never import a Python 3.12 NumPy or
+    # Torch wheel through PYTHONPATH/PYTHONHOME.
+    env.pop("PYTHONPATH", None)
+    env.pop("PYTHONHOME", None)
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     env["PYTHONIOENCODING"] = "utf-8"
     env.setdefault("PYTHONNOUSERSITE", "1")

@@ -11,7 +11,6 @@ $root = $PSScriptRoot
 $backend = Join-Path $root 'backend'
 $requirements = Join-Path $backend 'engine-build-requirements.txt'
 $entry = Join-Path $backend 'server.py'
-$qwenWorker = Join-Path $backend 'qwen_worker.py'
 $cosyWorker = Join-Path $backend 'cosyvoice_worker.py'
 $versionInfo = Join-Path $backend 'windows-version-info.txt'
 
@@ -20,7 +19,7 @@ if (-not $OutputDirectory) {
 }
 $OutputDirectory = [System.IO.Path]::GetFullPath($OutputDirectory)
 
-foreach ($required in @($Python, $requirements, $entry, $qwenWorker, $cosyWorker, $versionInfo)) {
+foreach ($required in @($Python, $requirements, $entry, $cosyWorker, $versionInfo)) {
   if (-not (Test-Path -LiteralPath $required)) {
     throw "Required BossAI Video Engine build input is missing: $required"
   }
@@ -58,7 +57,6 @@ try {
     --workpath $work `
     --specpath $spec `
     --paths $backend `
-    --add-data "$qwenWorker;." `
     --add-data "$cosyWorker;." `
     $entry
   if ($LASTEXITCODE -ne 0) { throw "PyInstaller Engine build failed (rc=$LASTEXITCODE)." }

@@ -23,7 +23,7 @@ def load_boundary():
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Fail-closed BossAI Video Agent commercial release gate.")
+    parser = argparse.ArgumentParser(description="Fail-closed BossAI Video Agent Freemium release gate.")
     parser.add_argument("--staging-root", default="", help="Optional unpacked/staging customer tree to scan")
     args = parser.parse_args()
 
@@ -252,12 +252,12 @@ def main() -> int:
     }
     print(json.dumps(report, ensure_ascii=False, indent=2))
     if failed:
-        print("RESULT: BossAI Video Agent commercial release gate FAILED CLOSED.")
+        print("RESULT: BossAI Video Agent release gate FAILED CLOSED.")
         return 2
     if manifest.get("distributionReady") is not True:
         print("RESULT: release evidence passes but product-manifest distributionReady is still false.")
         return 3
-    print("RESULT: BossAI Video Agent commercial release gate passed.")
+    print("RESULT: BossAI Video Agent release gate passed.")
     return 0
 
 

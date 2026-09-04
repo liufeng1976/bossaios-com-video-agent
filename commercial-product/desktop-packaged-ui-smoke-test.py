@@ -123,9 +123,18 @@ async def run(args: argparse.Namespace) -> dict:
             title = await page.title()
             body = await page.locator("body").inner_text()
             if "BossAI Video Agent" not in body:
-                raise AssertionError("BossAI product identity is not visible in packaged UI")
-            if "经营首页" not in body or "AI 口播视频" not in body or "关于与合规" not in body:
+                raise AssertionError("BossAI Video Agent identity is not visible in packaged UI")
+            if "首页" not in body or "AI 口播视频" not in body or "条款与隐私" not in body:
                 raise AssertionError("packaged BossAI navigation is incomplete")
+            for expected in ("Free Personal", "Personal Pro", "Business", "升级套餐", "软件许可 EULA"):
+                if expected not in body:
+                    raise AssertionError(f"packaged BossAI Freemium first-run entry is incomplete: {expected}")
+            await page.get_by_role("button", name="English", exact=True).click()
+            english_body = await page.locator("body").inner_text()
+            for expected in ("Home", "AI Video Studio", "Plan, quota & license", "Upgrade plan", "Software EULA"):
+                if expected not in english_body:
+                    raise AssertionError(f"English UI is incomplete: {expected}")
+            await page.get_by_role("button", name="中文", exact=True).click()
 
             legacy_literals = [
                 "".join(chr(v) for v in (0x5CB3, 0x54E5)),
@@ -165,20 +174,29 @@ async def run(args: argparse.Namespace) -> dict:
             if "文件导出仅在 BossAI Video Agent 桌面应用中启用" in studio_body:
                 raise AssertionError("packaged Vue renderer did not receive the BossAI final-video export bridge")
 
-            await page.get_by_role("button", name="关于与合规", exact=True).click()
+            await page.get_by_role("button", name="条款与隐私", exact=True).click()
             await page.get_by_text("客户法律包尚未批准", exact=True).wait_for(timeout=5000)
             legal_body = await page.locator("body").inner_text()
-            for expected in ("客户服务条款", "隐私说明", "声音与人物素材授权确认", "安装与支持说明", "第三方组件说明"):
+            for expected in ("最终用户许可协议 EULA", "当前源码许可", "历史 MIT 许可说明", "Business 商业许可", "服务条款", "隐私说明", "声音与人物素材授权确认", "安装与支持说明", "第三方组件说明"):
                 if expected not in legal_body:
                     raise AssertionError(f"legal/compliance screen missing item: {expected}")
+            eula_row = page.locator('.runtime-row').filter(has_text='最终用户许可协议 EULA')
+            source_license_row = page.locator('.runtime-row').filter(has_text='当前源码许可')
+            historical_row = page.locator('.runtime-row').filter(has_text='历史 MIT 许可说明')
+            commercial_license_row = page.locator('.runtime-row').filter(has_text='Business 商业许可')
             notices_row = page.locator('.runtime-row').filter(has_text='第三方组件说明')
-            terms_row = page.locator('.runtime-row').filter(has_text='客户服务条款')
+            terms_row = page.locator('.runtime-row').filter(has_text='服务条款')
+            for row, label in ((eula_row, 'EULA'), (source_license_row, 'current source license'), (historical_row, 'historical MIT notice'), (commercial_license_row, 'commercial license summary')):
+                if '可查看' not in await row.inner_text():
+                    raise AssertionError(f'{label} availability did not reach the Vue renderer through the desktop bridge')
+                if not await row.get_by_role('button', name='打开').is_enabled():
+                    raise AssertionError(f'{label} open action is not enabled in packaged desktop UI')
             if '可查看' not in await notices_row.inner_text():
                 raise AssertionError('third-party notice availability did not reach the Vue renderer through the desktop bridge')
             if not await notices_row.get_by_role('button', name='打开').is_enabled():
                 raise AssertionError('third-party notice open action is not enabled in packaged desktop UI')
-            if '未进入发行包' not in await terms_row.inner_text():
-                raise AssertionError('unapproved customer terms were not kept fail-closed in packaged desktop UI')
+            if '可查看' not in await terms_row.inner_text():
+                raise AssertionError('bilingual pre-release terms are not visible in the packaged desktop UI')
 
             result = {
                 "status": "passed",
@@ -187,6 +205,12 @@ async def run(args: argparse.Namespace) -> dict:
                 "windowTitle": title,
                 "backendHealthPassed": True,
                 "legalBridgePassed": True,
+                "freemiumTierEntryPassed": True,
+                "bilingualUiPassed": True,
+                "eulaAvailable": True,
+                "sourceLicenseAvailable": True,
+                "historicalMitNoticeAvailable": True,
+                "commercialLicenseSummaryAvailable": True,
                 "approvedLegalBundlePresent": False,
                 "thirdPartyNoticesAvailable": True,
                 "legacyVisibleIdentityMatches": 0,
@@ -237,7 +261,7 @@ async def run(args: argparse.Namespace) -> dict:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Smoke the independently packaged BossAI Video Agent desktop UI and legal bridge.")
+    parser = argparse.ArgumentParser(description="Smoke the independently packaged BossAI Video Agent Freemium desktop UI and legal bridge.")
     parser.add_argument("--app-exe", required=True)
     parser.add_argument("--site-packages", required=True)
     parser.add_argument("--api-port", type=int, default=8765)
@@ -245,7 +269,7 @@ def main() -> int:
     args = parser.parse_args()
     result = asyncio.run(run(args))
     print(json.dumps(result, ensure_ascii=False, indent=2))
-    print("RESULT: packaged BossAI Video Agent desktop/legal smoke passed.")
+    print("RESULT: packaged BossAI Video Agent Freemium desktop/legal smoke passed.")
     return 0
 
 

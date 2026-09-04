@@ -76,7 +76,6 @@ def assemble(ui_dist: Path, out: Path, *, replace: bool, engine_exe: Path | None
             "server.py",
             "bossai_os_bridge.py",
             "qwen_adapter.py",
-            "qwen_worker.py",
             "cosyvoice_adapter.py",
             "cosyvoice_worker.py",
             "musetalk_adapter.py",
@@ -88,6 +87,12 @@ def assemble(ui_dist: Path, out: Path, *, replace: bool, engine_exe: Path | None
 
     copy_file(HERE / "customer-product-metadata.json", out / "metadata" / "product.json")
     copy_file(HERE / "customer-third-party-notices.json", out / "legal" / "third-party-notices.json")
+    copy_file(HERE.parent / "EULA.md", out / "legal" / "EULA.md")
+    copy_file(HERE.parent / "LICENSE", out / "legal" / "HISTORICAL-MIT-LICENSE.txt")
+    copy_file(HERE.parent / "COMMERCIAL_LICENSE.md", out / "legal" / "COMMERCIAL-LICENSE.md")
+    copy_file(HERE.parent / "TERMS.md", out / "legal" / "TERMS.md")
+    copy_file(HERE.parent / "PRIVACY.md", out / "legal" / "PRIVACY.md")
+    copy_file(HERE.parent / "INSTALL.md", out / "legal" / "INSTALL.md")
 
     legal_release = HERE / "legal" / "release"
     if legal_release.is_dir():
@@ -103,6 +108,8 @@ def assemble(ui_dist: Path, out: Path, *, replace: bool, engine_exe: Path | None
         "install-cosyvoice2.ps1",
         "install-musetalk.ps1",
         "musetalk-constraints.txt",
+        "musetalk-windows-requirements.txt",
+        "cosyvoice-windows-requirements.txt",
         "runtime-source-lock.json",
     ):
         copy_file(runtime_installers / name, out / "runtime-installers" / name)
@@ -124,6 +131,8 @@ def assemble(ui_dist: Path, out: Path, *, replace: bool, engine_exe: Path | None
         "customerRuntimeStateIncluded": False,
         "credentialsIncluded": False,
         "customerProductMetadataIncluded": True,
+        "communitySourceLicenseIncluded": True,
+        "commercialLicenseSummaryIncluded": True,
         "internalGovernanceMetadataIncluded": False,
         "legalReleaseIncluded": (out / "legal" / "release" / "legal-release-manifest.json").is_file(),
         "runtimeNoticesIncluded": (out / "legal" / "runtime-notices" / "runtime-notices-manifest.json").is_file(),
@@ -158,7 +167,7 @@ def main() -> int:
         "backendSourceIncluded": result["backendSourceIncluded"],
         "installerReady": result["installerReady"],
     }, ensure_ascii=False, indent=2))
-    print("RESULT: BossAI Video Agent commercial staging assembled without legacy customer-facing identity.")
+    print("RESULT: BossAI Video Agent staging assembled without legacy customer-facing identity.")
     return 0
 
 

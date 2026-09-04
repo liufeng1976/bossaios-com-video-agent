@@ -4,6 +4,7 @@ import json
 import os
 import socket
 import sys
+import tempfile
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -21,6 +22,10 @@ STATE = {
     "licenseActive": True,
     "canCreatePaidAiTasks": True,
     "registered": True,
+    "walletAvailable": 1000,
+    "planCode": "video-pro",
+    "planName": "Video Pro",
+    "tenantPlan": "personal-pro",
     "lastAuthPayload": None,
 }
 
@@ -62,7 +67,7 @@ def entitlement_snapshot(product_version: str) -> dict:
         "generatedAt": "2026-08-29T00:00:00.000Z",
         "diagnosticId": "diag-smoke",
         "entitlementRevision": "rev-smoke",
-        "tenant": {"id": "tenant-smoke", "name": "Smoke Tenant", "plan": "commercial"},
+        "tenant": {"id": "tenant-smoke", "name": "Smoke Tenant", "plan": str(STATE["tenantPlan"])},
         "product": {"id": PRODUCT_ID, "version": product_version},
         "device": {"id": "smoke-device", "registered": bool(STATE["registered"]), "lastSeenAt": "2026-08-29T00:00:00.000Z"},
         "headquartersCommerce": {
@@ -88,11 +93,11 @@ def entitlement_snapshot(product_version: str) -> dict:
             "allowedBillingModes": ["bossai_points"],
             "defaultBillingMode": "bossai_points",
             "accessReason": "Smoke entitlement",
-            "planCode": "video-pro",
-            "planName": "Video Pro",
+            "planCode": str(STATE["planCode"]),
+            "planName": str(STATE["planName"]),
             "membershipStatus": "active",
-            "features": ["video.local_generation"],
-            "walletAvailable": 1000,
+            "features": ["video.rewrite", "video.tts", "video.digital-human"],
+            "walletAvailable": int(STATE["walletAvailable"]),
             "walletReserved": 0,
             "walletFrozen": False,
             "expiresAt": None,
@@ -176,13 +181,17 @@ def main() -> int:
 
     old_base = os.environ.get("BOSSAI_OS_BASE_URL")
     old_preview = os.environ.get("BOSSAI_VIDEO_COMMERCIAL_PREVIEW")
+    old_data_root = os.environ.get("BOSSAI_VIDEO_DATA_ROOT")
+    temp_data = tempfile.TemporaryDirectory(prefix="bossai-video-commercial-entitlement-")
     os.environ["BOSSAI_OS_BASE_URL"] = f"http://127.0.0.1:{port}"
+    os.environ["BOSSAI_VIDEO_DATA_ROOT"] = str(Path(temp_data.name) / "data")
     os.environ.pop("BOSSAI_VIDEO_COMMERCIAL_PREVIEW", None)
 
     try:
         import bossai_os_bridge
         import server
 
+        server._accept_eula("zh-CN")
         session = bossai_os_bridge.authenticate({
             "mode": "login",
             "identifier": "customer@example.com",
@@ -198,25 +207,35 @@ def main() -> int:
             raise AssertionError("BossAI account login payload changed unexpectedly")
 
         active = server._entitlement_snapshot()
-        if not active.get("verified") or not active.get("paidExecutionAllowed") or active.get("status") != "active":
-            raise AssertionError(f"active entitlement was not accepted: {active}")
-        server.require_execution()
+        if not active.get("verified") or not active.get("executionAllowed") or active.get("status") != "active" or active.get("tier") != "personal-pro":
+            raise AssertionError(f"Personal Pro entitlement was not accepted: {active}")
+        if active.get("businessUseAllowed"):
+            raise AssertionError("Personal Pro unexpectedly authorized commercial use")
+        server.require_execution(server.FEATURE_REWRITE)
 
-        STATE["canCreatePaidAiTasks"] = False
+        STATE["walletAvailable"] = 0
         restricted = server._entitlement_snapshot()
-        if not restricted.get("verified") or restricted.get("paidExecutionAllowed") or restricted.get("status") != "restricted":
-            raise AssertionError(f"restricted entitlement did not fail closed: {restricted}")
+        if not restricted.get("verified") or restricted.get("executionAllowed") or restricted.get("status") != "quota_exhausted":
+            raise AssertionError(f"authoritative quota exhaustion did not fail closed: {restricted}")
         try:
-            server.require_execution()
+            server.require_execution(server.FEATURE_REWRITE)
         except Exception as exc:
             if getattr(exc, "status_code", None) != 403:
                 raise
         else:
-            raise AssertionError("restricted entitlement unexpectedly allowed execution")
+            raise AssertionError("quota-exhausted execution unexpectedly passed")
+
+        STATE["walletAvailable"] = 1000
+        STATE["planCode"] = "video-business"
+        STATE["planName"] = "Video Business"
+        STATE["tenantPlan"] = "business"
+        business = server._entitlement_snapshot()
+        if business.get("tier") != "business" or not business.get("businessUseAllowed") or not business.get("executionAllowed"):
+            raise AssertionError(f"Business entitlement was not projected correctly: {business}")
 
         STATE["authenticated"] = False
         signed_out = server._entitlement_snapshot()
-        if signed_out.get("verified") or signed_out.get("paidExecutionAllowed") or signed_out.get("status") != "account_required":
+        if signed_out.get("verified") or signed_out.get("executionAllowed") or signed_out.get("status") != "account_required":
             raise AssertionError(f"signed-out state did not fail closed: {signed_out}")
 
         print(json.dumps({
@@ -224,12 +243,13 @@ def main() -> int:
             "productId": PRODUCT_ID,
             "accountLoginProxied": True,
             "passwordPersistedByVideoProduct": False,
-            "activeEntitlementAllowedExecution": True,
-            "restrictedEntitlementDeniedExecution": True,
+            "personalProAllowedPersonalExecution": True,
+            "quotaExhaustionDeniedExecution": True,
+            "businessCommercialUseProjected": True,
             "signedOutDeniedExecution": True,
             "upstreamAuthority": "bossai-headquarters-commerce",
         }, ensure_ascii=False, indent=2))
-        print("RESULT: BossAI Video Agent commercial account/entitlement bridge contract passed.")
+        print("RESULT: BossAI Video Agent Free Personal / Personal Pro / Business entitlement bridge contract passed.")
         return 0
     finally:
         server_http.shutdown()
@@ -243,6 +263,11 @@ def main() -> int:
             os.environ.pop("BOSSAI_VIDEO_COMMERCIAL_PREVIEW", None)
         else:
             os.environ["BOSSAI_VIDEO_COMMERCIAL_PREVIEW"] = old_preview
+        if old_data_root is None:
+            os.environ.pop("BOSSAI_VIDEO_DATA_ROOT", None)
+        else:
+            os.environ["BOSSAI_VIDEO_DATA_ROOT"] = old_data_root
+        temp_data.cleanup()
 
 
 if __name__ == "__main__":

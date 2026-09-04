@@ -7,6 +7,7 @@ const path = require('path')
 
 const PRODUCT_ID = 'bossai-video-agent'
 const PRODUCT_NAME = 'BossAI Video Agent'
+const UPGRADE_URL = 'https://bossaios.com/'
 const API_HOST = '127.0.0.1'
 const API_PORT = Number(process.env.BOSSAI_VIDEO_PORT || 8765)
 
@@ -21,6 +22,32 @@ function localStateRoot() {
   return local ? path.join(local, 'BossAI', 'VideoAgent') : path.join(app.getPath('appData'), 'BossAI', 'VideoAgent')
 }
 
+function runtimeStorageConfig() {
+  const configPath = path.join(localStateRoot(), 'runtime-storage.json')
+  try {
+    if (!fs.existsSync(configPath)) return {}
+    const value = JSON.parse(fs.readFileSync(configPath, 'utf8').replace(/^\uFEFF/, ''))
+    return value && typeof value === 'object' ? value : {}
+  } catch (error) {
+    console.warn(`Ignoring invalid BossAI runtime storage config ${configPath}:`, error?.message || error)
+    return {}
+  }
+}
+
+function runtimeRoot() {
+  const explicit = String(process.env.BOSSAI_VIDEO_RUNTIME_ROOT || '').trim()
+  if (explicit) return path.resolve(explicit)
+  const configured = String(runtimeStorageConfig().runtimeRoot || '').trim()
+  return configured ? path.resolve(configured) : path.join(localStateRoot(), 'runtimes')
+}
+
+function runtimeDownloadRoot() {
+  const explicit = String(process.env.BOSSAI_VIDEO_DOWNLOAD_ROOT || '').trim()
+  if (explicit) return path.resolve(explicit)
+  const configured = String(runtimeStorageConfig().downloadRoot || '').trim()
+  return configured ? path.resolve(configured) : path.join(localStateRoot(), 'downloads')
+}
+
 function configureElectronDataRoot() {
   const root = path.join(localStateRoot(), 'desktop')
   fs.mkdirSync(root, { recursive: true })
@@ -29,7 +56,8 @@ function configureElectronDataRoot() {
 
 const RUNTIME_ENV_KEYS = new Set([
   'BOSSAI_QWEN_MODEL',
-  'BOSSAI_QWEN_PYTHON',
+  'BOSSAI_QWEN_SERVER',
+  'BOSSAI_QWEN_GPU_LAYERS',
   'BOSSAI_COSYVOICE_ROOT',
   'BOSSAI_COSYVOICE_MODEL_DIR',
   'BOSSAI_COSYVOICE_PYTHON',
@@ -39,14 +67,14 @@ const RUNTIME_ENV_KEYS = new Set([
 ])
 
 function installedRuntimeEnvironment() {
-  const runtimesRoot = path.join(localStateRoot(), 'runtimes')
+  const runtimesRoot = runtimeRoot()
   const merged = {}
   for (const component of ['qwen2.5-7b-instruct', 'cosyvoice2-0.5b', 'musetalk']) {
     const manifestPath = path.join(runtimesRoot, component, 'runtime.json')
     if (!fs.existsSync(manifestPath)) continue
     try {
       const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8').replace(/^\uFEFF/, ''))
-      if (manifest?.schema !== 'bossai.video-agent-installed-runtime.v1' || manifest?.component !== component) continue
+      if (!['bossai.video-agent-installed-runtime.v1', 'bossai.video-agent-installed-runtime.v2'].includes(manifest?.schema) || manifest?.component !== component) continue
       const values = manifest?.env && typeof manifest.env === 'object' ? manifest.env : {}
       for (const [key, raw] of Object.entries(values)) {
         if (!RUNTIME_ENV_KEYS.has(key)) continue
@@ -216,7 +244,8 @@ async function startBackend() {
     ...process.env,
     ...runtimeEnv,
     BOSSAI_VIDEO_DATA_ROOT: dataRoot,
-    BOSSAI_VIDEO_RUNTIME_ROOT: path.join(root, 'runtimes'),
+    BOSSAI_VIDEO_RUNTIME_ROOT: runtimeRoot(),
+    BOSSAI_VIDEO_DOWNLOAD_ROOT: runtimeDownloadRoot(),
     BOSSAI_VIDEO_RUNTIME_SUPPORT_ROOT: path.join(root, 'runtime-support'),
     BOSSAI_VIDEO_RESOURCES_ROOT: app.isPackaged ? process.resourcesPath : path.resolve(__dirname, '..'),
     BOSSAI_VIDEO_LOCAL_CONTROL_TOKEN: localControlToken,
@@ -264,16 +293,26 @@ async function stopBackend() {
 }
 
 const LEGAL_DOCUMENTS = Object.freeze({
-  terms: 'CUSTOMER_TERMS.md',
-  privacy: 'PRIVACY_NOTICE.md',
+  eula: 'EULA.md',
+  sourceLicense: 'SOURCE-LICENSE.txt',
+  historicalLicense: 'HISTORICAL-MIT-LICENSE.md',
+  commercialLicense: 'COMMERCIAL-LICENSE.md',
+  terms: 'TERMS.md',
+  privacy: 'PRIVACY.md',
   voiceAvatar: 'VOICE_AVATAR_AUTHORIZATION.md',
-  support: 'SUPPORT_AND_INSTALLATION.md',
+  support: 'INSTALL.md',
   notices: 'third-party-notices.json',
 })
 
 function resolveLegalDocument(documentId) {
   const fileName = LEGAL_DOCUMENTS[String(documentId || '')]
   if (!fileName) return ''
+  if (documentId === 'eula' || documentId === 'sourceLicense' || documentId === 'historicalLicense' || documentId === 'commercialLicense' || documentId === 'terms' || documentId === 'privacy' || documentId === 'support') {
+    const sourceName = documentId === 'historicalLicense' ? 'LICENSE-HISTORICAL-MIT.md' : documentId === 'sourceLicense' ? 'LICENSE' : fileName
+    return app.isPackaged
+      ? path.join(process.resourcesPath, 'legal', fileName)
+      : path.resolve(__dirname, '..', '..', sourceName)
+  }
   if (documentId === 'notices') {
     return app.isPackaged
       ? path.join(process.resourcesPath, 'legal', fileName)
@@ -305,6 +344,14 @@ ipcMain.on('bossai:get-local-control-token', (event) => {
   event.returnValue = localControlToken
 })
 ipcMain.handle('bossai:legal-status', () => legalStatus())
+ipcMain.handle('bossai:open-upgrade', async () => {
+  try {
+    await shell.openExternal(UPGRADE_URL)
+    return { opened: true, url: UPGRADE_URL }
+  } catch (error) {
+    return { opened: false, reason: error?.message || String(error) }
+  }
+})
 ipcMain.handle('bossai:export-final-video', async (_event, payload = {}) => {
   const fileUrl = String(payload?.fileUrl || '').trim()
   const suggestedName = safeExportName(payload?.suggestedName)

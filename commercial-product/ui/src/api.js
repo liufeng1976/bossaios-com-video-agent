@@ -75,6 +75,17 @@ export async function getEntitlement() {
   return requestJson('/api/commercial/entitlement')
 }
 
+export async function getEulaStatus() {
+  return requestJson('/api/license/eula')
+}
+
+export async function acceptEula(locale = 'zh-CN') {
+  return requestJson('/api/license/eula', {
+    method: 'POST',
+    body: JSON.stringify({ accepted: true, locale }),
+  })
+}
+
 export async function getAccountSession() {
   return requestJson('/api/account/session')
 }
@@ -104,7 +115,7 @@ export async function rewriteScript(sourceText, options = {}) {
       sourceText,
       rewriteMode: 'video-learning',
       targetChars: Number(options.targetChars) || 300,
-      targetLanguage: 'zh',
+      targetLanguage: options.targetLanguage || 'zh',
       platform: options.platform || 'douyin',
       videoType: options.videoType || 'voiceover',
       personaType: 'persona',

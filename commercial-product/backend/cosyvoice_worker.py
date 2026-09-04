@@ -28,13 +28,20 @@ def main() -> int:
     import torch
     import torchaudio
     from cosyvoice.cli.cosyvoice import CosyVoice2
-    from cosyvoice.utils.file_utils import load_wav
 
     engine = CosyVoice2(str(model_dir), load_jit=False, load_trt=False, fp16=torch.cuda.is_available())
-    prompt_speech = load_wav(str(reference), 16000)
     chunks = []
     sample_rate = int(getattr(engine, "sample_rate", 24000) or 24000)
-    for item in engine.inference_zero_shot(args.text, "", prompt_speech, stream=False):
+    # CosyVoice2's public zero-shot API loads and resamples the reference
+    # audio itself. Passing a preloaded tensor works with neither the current
+    # 2.0 runtime nor the documented API, so retain the verified file path.
+    for item in engine.inference_zero_shot(
+        args.text,
+        "",
+        str(reference),
+        stream=False,
+        text_frontend=False,
+    ):
         speech = item.get("tts_speech") if isinstance(item, dict) else None
         if speech is not None:
             chunks.append(speech.detach().cpu())

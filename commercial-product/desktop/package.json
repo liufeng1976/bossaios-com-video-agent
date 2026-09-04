@@ -2,7 +2,7 @@
   "name": "bossai-video-agent-desktop",
   "private": true,
   "version": "0.1.0",
-  "description": "BossAI Video Agent commercial desktop application",
+  "description": "BossAI Video Agent bilingual public-source Freemium desktop application",
   "author": "BossAI",
   "main": "main.cjs",
   "scripts": {
@@ -19,6 +19,7 @@
     "productName": "BossAI Video Agent",
     "copyright": "Copyright © 2026 BossAI",
     "asar": true,
+    "compression": "store",
     "directories": {
       "buildResources": "build"
     },
@@ -44,7 +45,6 @@
           "server.py",
           "bossai_os_bridge.py",
           "qwen_adapter.py",
-          "qwen_worker.py",
           "cosyvoice_adapter.py",
           "cosyvoice_worker.py",
           "musetalk_adapter.py",
@@ -60,6 +60,34 @@
         "to": "legal/third-party-notices.json"
       },
       {
+        "from": "../../EULA.md",
+        "to": "legal/EULA.md"
+      },
+      {
+        "from": "../../LICENSE",
+        "to": "legal/SOURCE-LICENSE.txt"
+      },
+      {
+        "from": "../../LICENSE-HISTORICAL-MIT.md",
+        "to": "legal/HISTORICAL-MIT-LICENSE.md"
+      },
+      {
+        "from": "../../COMMERCIAL_LICENSE.md",
+        "to": "legal/COMMERCIAL-LICENSE.md"
+      },
+      {
+        "from": "../../TERMS.md",
+        "to": "legal/TERMS.md"
+      },
+      {
+        "from": "../../PRIVACY.md",
+        "to": "legal/PRIVACY.md"
+      },
+      {
+        "from": "../../INSTALL.md",
+        "to": "legal/INSTALL.md"
+      },
+      {
         "from": "../runtime-installers",
         "to": "runtime-installers",
         "filter": [
@@ -67,7 +95,10 @@
           "install-qwen.ps1",
           "install-cosyvoice2.ps1",
           "install-musetalk.ps1",
+          "migrate-runtime-storage.ps1",
           "musetalk-constraints.txt",
+          "musetalk-windows-requirements.txt",
+          "cosyvoice-windows-requirements.txt",
           "runtime-source-lock.json"
         ]
       },
@@ -83,6 +114,10 @@
       "artifactName": "BossAI-Video-Agent-${version}-Setup.${ext}"
     },
     "nsis": {
+      "useZip": true,
+      "differentialPackage": false,
+      "perMachine": false,
+      "allowElevation": false,
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,

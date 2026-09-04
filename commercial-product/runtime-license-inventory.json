@@ -79,10 +79,14 @@
     {
       "id": "musetalk",
       "role": "digital-human-lipsync",
-      "commercialStatus": "planned-replacement-approved-with-notice",
-      "license": "MIT",
+      "commercialStatus": "planned-replacement-approved-with-multi-license-notice",
+      "license": "mixed",
+      "sourceLicense": "MIT",
+      "trainedModelDeclaredLicense": "creativeml-openrail-m",
+      "dependencyModelLicenses": ["MIT", "Apache-2.0", "openrail++", "WTFPL"],
       "source": "https://github.com/TMElyralab/MuseTalk",
-      "notes": "Chosen commercial replacement for the legacy unknown-rights digital-human engine. Official project states code has no academic/commercial restriction and trained models may be used commercially; bundled test data must not be reused commercially."
+      "modelSource": "https://huggingface.co/TMElyralab/MuseTalk",
+      "notes": "MuseTalk source code is MIT. The pinned Hugging Face trained model declares CreativeML OpenRAIL-M while the official model card states trained models may be used commercially. Dependent model artifacts retain their own MIT, Apache-2.0, OpenRAIL++ or WTFPL terms. Upstream test/demo media must not be reused commercially or shipped as customer assets."
     },
     {
       "id": "legacy-digital-human-engine",

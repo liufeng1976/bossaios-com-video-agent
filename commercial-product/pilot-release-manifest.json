@@ -1,0 +1,52 @@
+{
+  "schema": "bossai.video-agent-internal-pilot-release.v1",
+  "productId": "bossai-video-agent",
+  "productName": "BossAI Video Agent",
+  "version": "0.1.0",
+  "channel": "internal-pilot",
+  "status": "ready",
+  "installer": {
+    "name": "BossAI-Video-Agent-0.1.0-Setup.exe",
+    "bytes": 358401254,
+    "sha256": "9ee207a7c3a7cfe71354f09f5aad26010187897477f3e796a2adcf45c72c2b36",
+    "authenticode": "NotSigned",
+    "warning": "Internal Pilot only. Windows SmartScreen/security warnings may appear until trusted Authenticode signing is added."
+  },
+  "application": {
+    "sha256": "002ceb0a1682768e035dea37b0300ca0c8fbd4362395c597850d65acce53bdb0",
+    "authenticode": "NotSigned"
+  },
+  "engine": {
+    "sha256": "69480a721320f5a00859500a5d316f336ecbcac48216e13b1f63e27b51e82f4b"
+  },
+  "runtimeStorage": {
+    "runtimeRoot": "D:\\BossAI-Models\\VideoAgent\\runtimes",
+    "downloadRoot": "D:\\BossAI-Models\\VideoAgent\\downloads",
+    "cDriveModelStorageRemovedAfterVerification": true
+  },
+  "validated": {
+    "freePersonalNoSignIn": true,
+    "commercialUseFailsClosedWithoutVerifiedEntitlement": true,
+    "qwenRuntime": true,
+    "cosyVoiceRuntime": true,
+    "museTalkRuntimeAndCuda": true,
+    "runtimeHashes": true,
+    "runtimeLicenseNotices": true,
+    "packagedDesktopSmoke": true,
+    "realInstallerInstallLaunchUninstallSmoke": true,
+    "distributionBoundaryViolations": 0,
+    "publishingEnabled": false
+  },
+  "pilotLimitations": [
+    "Business/commercial authorization remains unavailable until live BossAI entitlement UAT passes.",
+    "MuseTalk commercial render readiness is not claimed until end-to-end UAT is completed with customer-authorized or BossAI-owned media.",
+    "Windows application and installer are unsigned and are not approved for GA/public commercial distribution.",
+    "Final customer legal documents are not approved; this build is not customer-ready GA."
+  ],
+  "gaBlockers": [
+    "bossai-entitlement-live-uat",
+    "musetalk-live-uat",
+    "windows-code-signing",
+    "customer-legal"
+  ]
+}

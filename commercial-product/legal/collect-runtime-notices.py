@@ -43,7 +43,7 @@ def main() -> int:
         if not runtime_manifest_path.is_file():
             raise RuntimeError(f"installed runtime manifest missing: {runtime_manifest_path}")
         runtime_manifest = read_json(runtime_manifest_path)
-        if runtime_manifest.get("schema") != "bossai.video-agent-installed-runtime.v1":
+        if runtime_manifest.get("schema") not in {"bossai.video-agent-installed-runtime.v1", "bossai.video-agent-installed-runtime.v2"}:
             raise RuntimeError(f"invalid runtime manifest schema: {runtime_manifest_path}")
         if runtime_manifest.get("component") != component:
             raise RuntimeError(f"runtime manifest component mismatch: {runtime_manifest_path}")

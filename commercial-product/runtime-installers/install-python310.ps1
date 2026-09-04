@@ -38,14 +38,28 @@ function Verify-Archive([string]$Path) {
 
 function Test-Runtime([string]$Root) {
   $python = Join-Path $Root 'python.exe'
-  if (-not (Test-Path -LiteralPath $python -PathType Leaf)) { return $false }
+  if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
+    Write-Host "BOSSAI_DIAG Portable Python executable missing: $python"
+    return $false
+  }
   try {
-    $actual = (& $python -c "import sys; print('.'.join(map(str, sys.version_info[:3])))" | Select-Object -Last 1).Trim()
-    if ($LASTEXITCODE -ne 0 -or $actual -ne $version) { return $false }
-    $pip = (& $python -m pip --version | Select-Object -Last 1)
-    if ($LASTEXITCODE -ne 0 -or -not $pip) { return $false }
+    $actualOutput = & $python -c "import sys; print('.'.join(map(str, sys.version_info[:3])))" 2>&1
+    $actualExit = $LASTEXITCODE
+    $actual = if ($actualOutput) { ([string]($actualOutput | Select-Object -Last 1)).Trim() } else { '' }
+    if ($actualExit -ne 0 -or $actual -ne $version) {
+      Write-Host "BOSSAI_DIAG Portable Python version probe failed (exit=$actualExit expected=$version actual=$actual)."
+      return $false
+    }
+    $pipOutput = & $python -c "import pip; print(pip.__version__)" 2>&1
+    $pipExit = $LASTEXITCODE
+    $pip = if ($pipOutput) { ([string]($pipOutput | Select-Object -Last 1)).Trim() } else { '' }
+    if ($pipExit -ne 0 -or -not $pip) {
+      Write-Host "BOSSAI_DIAG Portable Python pip import probe failed (exit=$pipExit output=$pip)."
+      return $false
+    }
     return $true
   } catch {
+    Write-Host "BOSSAI_DIAG Portable Python runtime probe raised: $($_.Exception.Message)"
     return $false
   }
 }

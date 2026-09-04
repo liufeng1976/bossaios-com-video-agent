@@ -1,21 +1,40 @@
 {
-  "schema": "bossai.video-agent-customer-product.v1",
+  "schema": "bossai.video-agent-customer-product.v2",
   "productId": "bossai-video-agent",
   "productName": "BossAI Video Agent",
   "shortName": "BossAI Video",
   "company": "BossAI",
+  "website": "https://bossaios.com/",
   "version": "0.1.0",
   "desktopAppId": "com.bossai.videoagent",
   "windowsExecutable": "BossAI Video Agent.exe",
   "installerName": "BossAI-Video-Agent-0.1.0-Setup.exe",
-  "localDataRoot": "%LOCALAPPDATA%\\BossAI\\VideoAgent",
+  "distributionModel": "public-source-dual-license",
+  "sourcePublication": "core-source-not-published-for-new-formal-versions",
+  "historicalPublicLicense": "MIT-for-previously-published-revisions-only",
+  "newVersionLicense": "BossAI Video Agent EULA",
+  "tiers": ["free-personal", "personal-pro", "business"],
+  "freePersonal": {
+    "price": "free",
+    "use": "personal-only",
+    "quota": "monthly-authoritative-bossai-quota"
+  },
+  "personalPro": {
+    "billing": "subscription",
+    "use": "personal-only",
+    "quota": "higher-authoritative-bossai-quota"
+  },
+  "business": {
+    "billing": "commercial-license-or-subscription",
+    "use": "commercial-authorized"
+  },
   "commercialAuthority": "bossai-headquarters-commerce",
   "agentPlatform": "bossai-os",
   "entitlementSchema": "bossai.commercial-entitlement.v1",
-  "billingModes": [
-    "bossai_points",
-    "customer_byok"
-  ],
+  "billingModes": ["bossai_points", "customer_byok"],
+  "localPointsLedgerAuthoritative": false,
+  "byokBypassesEntitlement": false,
   "customerDataResidency": "local-by-default",
+  "supportedLocales": ["zh-CN", "en"],
   "publishingEnabled": false
 }

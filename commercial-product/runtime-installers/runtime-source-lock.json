@@ -15,23 +15,123 @@
       "installScope": "portable-side-by-side-private-runtime-no-registry-or-path-mutation"
     },
     "qwen2.5-7b-instruct": {
-      "sourceType": "huggingface",
+      "sourceType": "huggingface+github-release",
       "repository": "Qwen/Qwen2.5-7B-Instruct-GGUF",
       "revision": "bb5d59e06d9551d752d08b292a50eb208b07ab1f",
       "variant": "Q4_K_M",
       "license": "Apache-2.0",
       "files": [
-        "qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf",
-        "qwen2.5-7b-instruct-q4_k_m-00002-of-00002.gguf"
-      ]
+        {
+          "name": "qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf",
+          "sha256": "dfce12e3862a5283ccfb88221b48480e58745165de856439950d0f22590580db"
+        },
+        {
+          "name": "qwen2.5-7b-instruct-q4_k_m-00002-of-00002.gguf",
+          "sha256": "539cf93f78e887edea1c04e2d7d8cdaca9d01dae9c9025bcb8accbe29df3d72a"
+        }
+      ],
+      "inferenceRuntime": {
+        "project": "ggml-org/llama.cpp",
+        "release": "b10516",
+        "commit": "b95502ba9",
+        "artifact": "llama-b10516-bin-win-vulkan-x64.zip",
+        "url": "https://github.com/ggml-org/llama.cpp/releases/download/b10516/llama-b10516-bin-win-vulkan-x64.zip",
+        "sha256": "530f57d2a874ce017827c1e5a926812b9d5de4667248575d1372b1c0acf94d83",
+        "license": "MIT",
+        "defaultGpuLayers": 10
+      }
     },
     "cosyvoice2-0.5b": {
       "sourceType": "git+huggingface",
       "sourceRepository": "https://github.com/FunAudioLLM/CosyVoice.git",
       "sourceRevision": "074ca6dc9e80a2f424f1f74b48bdd7d3fea531cc",
+      "sourceArtifact": {
+        "url": "https://github.com/FunAudioLLM/CosyVoice/archive/074ca6dc9e80a2f424f1f74b48bdd7d3fea531cc.zip",
+        "sha256": "4e7b1ce909f97abcc8afa0a890f92ccf2839ff435c698d4f04a1ba7aa71a022f"
+      },
+      "submodules": {
+        "third_party/Matcha-TTS": {
+          "repository": "https://github.com/shivammehta25/Matcha-TTS.git",
+          "revision": "dd9105b34bf2be2230f4aa1e4769fb586a3c824e",
+          "archiveUrl": "https://github.com/shivammehta25/Matcha-TTS/archive/dd9105b34bf2be2230f4aa1e4769fb586a3c824e.zip",
+          "sha256": "75701744385a813822b2561b02562e4efe5e241d0142c21969642fcb15f61c15"
+        }
+      },
       "modelRepository": "FunAudioLLM/CosyVoice2-0.5B",
       "modelRevision": "eec1ae6c79877dbd9379285cf8789c9e0879293d",
       "license": "Apache-2.0",
+      "verifiedHashes": {
+        "campplus.onnx": "a6ac6a63997761ae2997373e2ee1c47040854b4b759ea41ec48e4e42df0f4d73",
+        "cosyvoice2.yaml": "0af2c0d010c477187c39f3e8fd5f1ae2e4e6f90ad03ba37c10ed6c6a87b05959",
+        "flow.pt": "ff4c2f867674411e0a08cee702996df13fa67c1cd864c06108da88d16d088541",
+        "hift.pt": "3386cc880324d4e98e05987b99107f49e40ed925b8ecc87c1f4939432d429879",
+        "llm.pt": "b144ef55b51ce8cfb79a73c90dbba0bdaba4e451c0ebcfab20f769264f84a608",
+        "speech_tokenizer_v2.onnx": "d43342aa12163a80bf07bffb94c9de2e120a8df2f9917cd2f642e7f4219c6f71",
+        "CosyVoice-BlankEN/config.json": "168aa1bd401abc3bc262ba15ba4e499627a8b4e006e9d050b47c22de20660185",
+        "CosyVoice-BlankEN/generation_config.json": "e558847a8b4402616f1273797b015104dc266fe4b520056fca88823ba8f8ebe6",
+        "CosyVoice-BlankEN/merges.txt": "ac8ff86a72bee70828fbc1119bc4398c6f3a9a6e490d7b0dbe917be025478bd0",
+        "CosyVoice-BlankEN/model.safetensors": "130282af0dfa9fe5840737cc49a0d339d06075f83c5a315c3372c9a0740d0b96",
+        "CosyVoice-BlankEN/tokenizer_config.json": "482bd979881423375ca5414e4e0d94cd7c5349dbb17fffd46b4d36d71e62a1bc",
+        "CosyVoice-BlankEN/vocab.json": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"
+      },
+      "supplementalPythonLicenses": [
+        {
+          "package": "antlr4-python3-runtime",
+          "version": "4.9.3",
+          "license": "BSD-3-Clause",
+          "url": "https://raw.githubusercontent.com/antlr/antlr4/4.9.3/LICENSE.txt",
+          "sha256": "b1b379fcaf3219593a4c433feb1b35c780bed23fafaae440b1ae2771a9521e3a",
+          "filename": "LICENSE.txt"
+        },
+        {
+          "package": "flatbuffers",
+          "version": "25.12.19",
+          "license": "Apache-2.0",
+          "url": "https://raw.githubusercontent.com/google/flatbuffers/v25.12.19/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "filename": "LICENSE"
+        },
+        {
+          "package": "loguru",
+          "version": "0.7.3",
+          "license": "MIT",
+          "url": "https://raw.githubusercontent.com/Delgan/loguru/0.7.3/LICENSE",
+          "sha256": "b35d026cc7aca9d5859a02eb87ddf7a386a24c986838651bd1f283f94e003327",
+          "filename": "LICENSE"
+        },
+        {
+          "package": "tokenizers",
+          "version": "0.21.4",
+          "license": "Apache-2.0",
+          "url": "https://raw.githubusercontent.com/huggingface/tokenizers/v0.21.4/LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "filename": "LICENSE"
+        }
+      ],
+      "torchRuntime": {
+        "version": "2.3.1",
+        "torchaudioVersion": "2.3.1",
+        "profiles": {
+          "cu121": {
+            "torchUrl": "https://download-r2.pytorch.org/whl/cu121/torch-2.3.1%2Bcu121-cp310-cp310-win_amd64.whl",
+            "torchSha256": "bf1438aeb124fc36ae2d6b4b5c76d751d47a9fc3d7b15291b41f0caa8d5bf27b",
+            "torchaudioUrl": "https://download-r2.pytorch.org/whl/cu121/torchaudio-2.3.1%2Bcu121-cp310-cp310-win_amd64.whl",
+            "torchaudioSha256": "8b4017fda6eb9e840208696434f999a423b8c27bb54888a0e6a630b518b06855"
+          },
+          "cu118": {
+            "torchUrl": "https://download-r2.pytorch.org/whl/cu118/torch-2.3.1%2Bcu118-cp310-cp310-win_amd64.whl",
+            "torchSha256": "c8248eb98425573e496a7ee9d77b2329bb2ef70e3af7eb51fad5438a12b30b8e",
+            "torchaudioUrl": "https://download-r2.pytorch.org/whl/cu118/torchaudio-2.3.1%2Bcu118-cp310-cp310-win_amd64.whl",
+            "torchaudioSha256": "62ee2cb802d60e19bdcc3455de0b9ece8d895a4c364a193d01df4f9b93c362d0"
+          },
+          "cpu": {
+            "torchUrl": "https://download-r2.pytorch.org/whl/cpu/torch-2.3.1%2Bcpu-cp310-cp310-win_amd64.whl",
+            "torchSha256": "500bf790afc2fd374a15d06213242e517afccc50a46ea5955d321a9a68003335",
+            "torchaudioUrl": "https://download-r2.pytorch.org/whl/cpu/torchaudio-2.3.1%2Bcpu-cp310-cp310-win_amd64.whl",
+            "torchaudioSha256": "fed18fd46c61f3c35912e0d9731b9e512c99d387c4f5f22e0b12f55247d5db2f"
+          }
+        }
+      },
       "customerReferenceVoicePolicy": "customer-authorized-or-bossai-owned-only"
     },
     "musetalk": {
@@ -41,6 +141,199 @@
       "modelRepository": "TMElyralab/MuseTalk",
       "modelRevision": "3ef28bc5cff08c90ad8178a25f1b570cd800170f",
       "license": "MIT",
+      "sourceLicense": "MIT",
+      "trainedModelDeclaredLicense": "creativeml-openrail-m",
+      "trainedModelCommercialUseStatement": "Pinned MuseTalk model card states trained models are available for any purpose, including commercial use; all declared model-license terms and dependent-model licenses still apply.",
+      "modelLicenseEvidence": [
+        {
+          "id": "musetalk-trained-model",
+          "repository": "TMElyralab/MuseTalk",
+          "revision": "3ef28bc5cff08c90ad8178a25f1b570cd800170f",
+          "declaredLicense": "creativeml-openrail-m",
+          "url": "https://raw.githubusercontent.com/CompVis/stable-diffusion/21f890f9da3cfbeaba8e2ac3c425ee9e998d5229/LICENSE",
+          "sha256": "be351ebe7ac01bcdbb018639aadcfd38f136b7dc3f2a3d4d3a24db51d1b210ef",
+          "filename": "MuseTalk-Model-CreativeML-OpenRAIL-M-LICENSE.txt"
+        },
+        {
+          "id": "sd-vae-ft-mse",
+          "repository": "stabilityai/sd-vae-ft-mse",
+          "revision": "31f26fdeee1355a5c34592e401dd41e45d25a493",
+          "declaredLicense": "MIT",
+          "url": "https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0/text/MIT.txt",
+          "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5",
+          "filename": "sd-vae-ft-mse-MIT-LICENSE.txt"
+        },
+        {
+          "id": "whisper-tiny",
+          "repository": "openai/whisper-tiny",
+          "revision": "169d4a4341b33bc18d8881c4b69c2e104e1cc0af",
+          "declaredLicense": "Apache-2.0",
+          "url": "https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0/text/Apache-2.0.txt",
+          "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff",
+          "filename": "whisper-tiny-Apache-2.0-LICENSE.txt"
+        },
+        {
+          "id": "dwpose",
+          "repository": "yzd-v/DWPose",
+          "revision": "1a7144101628d69ee7a3768d1ee3a094070dc388",
+          "declaredLicense": "Apache-2.0",
+          "url": "https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0/text/Apache-2.0.txt",
+          "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff",
+          "filename": "DWPose-Apache-2.0-LICENSE.txt"
+        },
+        {
+          "id": "latentsync-syncnet",
+          "repository": "ByteDance/LatentSync",
+          "revision": "405eda8eab9f65c1a6e0c292a5dee5a08089e2ae",
+          "declaredLicense": "openrail++",
+          "url": "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/462165984030d82259a11f4367a4eed129e94a7b/LICENSE.md",
+          "sha256": "19b6998b569b53ac1fc2158a8a3202c8699a9a4605b47075715d9c96be7fb6d0",
+          "filename": "LatentSync-OpenRAIL-PlusPlus-LICENSE.md"
+        },
+        {
+          "id": "face-parse-bisent",
+          "repository": "ManyOtherFunctions/face-parse-bisent",
+          "revision": "0073b233a5a3c4b1377d4dbf49245017938a72b5",
+          "declaredLicense": "WTFPL",
+          "url": "https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0/text/WTFPL.txt",
+          "sha256": "13d8825a59e5e546d41e8711405d0f335a9934362a47c04a3b4280fa7932dc4a",
+          "filename": "face-parse-bisent-WTFPL-LICENSE.txt"
+        }
+      ],
+      "ffmpegRuntime": {
+        "distributionMode": "external-user-installed-not-bundled",
+        "packageId": "Gyan.FFmpeg.Essentials",
+        "version": "8.1.1",
+        "publisher": "Gyan",
+        "installerUrl": "https://github.com/GyanD/codexffmpeg/releases/download/8.1.1/ffmpeg-8.1.1-essentials_build.zip",
+        "installerSha256": "6f58ce889f59c311410f7d2b18895b33c03456463486f3b1ebc93d97a0f54541",
+        "upstreamSourceRevision": "239f2c733d",
+        "license": "GPL-3.0",
+        "expectedExecutableSha256": "228d7a8556258de907fdb55f36850078ebc7680b84ec30d84ea02e99bec1d1eb",
+        "licenseFileSha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
+        "requiredBuildFlags": ["--enable-gpl", "--enable-version3"],
+        "bossaiMayBundle": false
+      },
+      "implicitRuntimeArtifacts": {
+        "s3fdFaceDetector": {
+          "url": "https://www.adrianbulat.com/downloads/python-fan/s3fd-619a316812.pth",
+          "sha256": "619a31681264d3f7f7fc7a16a42cbbe8b23f31a256f75a366e5a1bcd59b33543",
+          "destination": "MuseTalk/musetalk/utils/face_detection/detection/sfd/s3fd.pth",
+          "purpose": "preseed face detector weight so MuseTalk never calls torch.model_zoo.load_url at inference time"
+        },
+        "dwposeBackbone": {
+          "url": "https://download.openmmlab.com/mmpose/v1/projects/rtmpose/cspnext-l_udp-aic-coco_210e-256x192-273b7631_20230130.pth",
+          "sha256": "273b7631014c2c6f66fda285540e6cf4ae6fda0fb328a7a41b1e32ea3afb750c",
+          "destination": "torch-cache/hub/checkpoints/cspnext-l_udp-aic-coco_210e-256x192-273b7631_20230130.pth",
+          "purpose": "preseed torch hub cache for the DWPose config pretrained backbone URL"
+        }
+      },
+      "torchRuntime": {
+        "profile": "cu118",
+        "python": "cp310-win_amd64",
+        "torch": {
+          "version": "2.0.1+cu118",
+          "url": "https://download-r2.pytorch.org/whl/cu118/torch-2.0.1%2Bcu118-cp310-cp310-win_amd64.whl",
+          "sha256": "f58d75619bc96e4322343c030b893613701caa2d6db8017155da226c14171335"
+        },
+        "torchvision": {
+          "version": "0.15.2+cu118",
+          "url": "https://download-r2.pytorch.org/whl/cu118/torchvision-0.15.2%2Bcu118-cp310-cp310-win_amd64.whl",
+          "sha256": "bfd2435d681418bea8dacde2b2cb6e5dd40a0e0243d3631e2b71c10bf9831f39"
+        },
+        "torchaudio": {
+          "version": "2.0.2+cu118",
+          "url": "https://download-r2.pytorch.org/whl/cu118/torchaudio-2.0.2%2Bcu118-cp310-cp310-win_amd64.whl",
+          "sha256": "8ad0e93e39ce594a5cc53d46d972fde20b499e69d1e7f765adb33de13cfbab86"
+        }
+      },
+      "huggingFaceXetRuntime": {
+        "version": "1.1.7",
+        "license": "Apache-2.0",
+        "filename": "hf_xet-1.1.7-cp37-abi3-win_amd64.whl",
+        "url": "https://files.pythonhosted.org/packages/a3/73/e354eae84ceff117ec3560141224724794828927fcc013c5b449bf0b8745/hf_xet-1.1.7-cp37-abi3-win_amd64.whl",
+        "sha256": "2e356da7d284479ae0f1dea3cf5a2f74fdf925d6dca84ac4341930d892c7cb34",
+        "bytes": 2820008,
+        "purpose": "official Hugging Face Xet client for pinned large-model downloads; final artifact SHA-256 remains authoritative"
+      },
+      "openMmlabRuntime": {
+        "mmengineVersion": "0.10.7",
+        "mmcvVersion": "2.0.1",
+        "mmdetVersion": "3.1.0",
+        "mmposeVersion": "1.1.0",
+        "mmcvWheel": {
+          "filename": "mmcv-2.0.1-cp310-cp310-win_amd64.whl",
+          "url": "https://download.openmmlab.com/mmcv/dist/cu118/torch2.0.0/mmcv-2.0.1-cp310-cp310-win_amd64.whl",
+          "sha256": "622bbff1f59cd8c9c350c43b6bc2a1a7a1bb065d34681ef8614da8e3b31c9486",
+          "bytes": 35396863
+        }
+      },
+      "pinnedPythonWheels": {
+        "llvmlite": {
+          "version": "0.49.0",
+          "filename": "llvmlite-0.49.0-cp310-cp310-win_amd64.whl",
+          "url": "https://files.pythonhosted.org/packages/59/f6/5c18be29145cfca1d9e859e55a3c586a8c5a821825017b04c7999cd166c9/llvmlite-0.49.0-cp310-cp310-win_amd64.whl",
+          "sha256": "b352c14353330c879e339b8f8d7491d565fe94242697714a24e80bd757202384"
+        },
+        "scipy": {
+          "version": "1.15.3",
+          "filename": "scipy-1.15.3-cp310-cp310-win_amd64.whl",
+          "url": "https://files.pythonhosted.org/packages/d1/84/55bc4881973d3f79b479a5a2e2df61c8c9a04fcb986a213ac9c02cfb659b/scipy-1.15.3-cp310-cp310-win_amd64.whl",
+          "sha256": "9d61e97b186a57350f6d6fd72640f9e99d5a4a2b8fbf4b9ee9a841eab327dc13"
+        },
+        "scikitLearn": {
+          "version": "1.7.2",
+          "filename": "scikit_learn-1.7.2-cp310-cp310-win_amd64.whl",
+          "url": "https://files.pythonhosted.org/packages/7f/9b/87961813c34adbca21a6b3f6b2bea344c43b30217a6d24cc437c6147f3e8/scikit_learn-1.7.2-cp310-cp310-win_amd64.whl",
+          "sha256": "ca250e6836d10e6f402436d6463d6c0e4d8e0234cfb6a9a47835bd392b852ce5"
+        }
+      },
+      "supplementalPythonLicenses": [
+        {
+          "package": "antlr4-python3-runtime",
+          "version": "4.9.3",
+          "license": "BSD-3-Clause",
+          "url": "https://raw.githubusercontent.com/antlr/antlr4/4.9.3/LICENSE.txt",
+          "sha256": "b1b379fcaf3219593a4c433feb1b35c780bed23fafaae440b1ae2771a9521e3a",
+          "filename": "LICENSE.txt"
+        },
+        {
+          "package": "chumpy",
+          "version": "0.70",
+          "license": "MIT",
+          "url": "https://raw.githubusercontent.com/mattloper/chumpy/8ac4f2a21cfdc3f13e41ccdec347e803fdb292d5/LICENSE.txt",
+          "sha256": "858fa88a64054c3703b1bbb0bc166eb390117de1e3ab9fbc533db500d0bb83a7",
+          "filename": "LICENSE.txt",
+          "releaseArtifactUrl": "https://files.pythonhosted.org/packages/01/f7/865755c8bdb837841938de622e6c8b5cb6b1c933bde3bd3332f0cd4574f1/chumpy-0.70.tar.gz",
+          "releaseArtifactSha256": "a0275c2018784ca1302875567dc81761f5fd469fab9f3ac0f3e7c39e9180350a"
+        },
+        {
+          "package": "Cython",
+          "version": "3.3.0",
+          "license": "Apache-2.0",
+          "url": "https://raw.githubusercontent.com/cython/cython/3.3.0/LICENSE.txt",
+          "sha256": "9568a2b155e66ac3e0ba1fd80b52b827b9460e6cf6f233125e7cbca8e206ddc3",
+          "filename": "LICENSE.txt"
+        },
+        {
+          "package": "pycocotools",
+          "version": "2.0.11",
+          "license": "BSD-3-Clause",
+          "url": "https://raw.githubusercontent.com/ppwwyyxx/cocoapi/ac87f5077ad6b8864c2dc5e93d14cae62d1db05a/license.txt",
+          "sha256": "bd8ef15597b3b292f3bb0feed9701c1ace5bcebe07f28fb5047ec8d3d89471b1",
+          "filename": "license.txt",
+          "releaseArtifactUrl": "https://files.pythonhosted.org/packages/a2/df/32354b5dda963ffdfc8f75c9acf8828ef7890723a4ed57bb3ff2dc1d6f7e/pycocotools-2.0.11.tar.gz",
+          "releaseArtifactSha256": "34254d76da85576fcaf5c1f3aa9aae16b8cb15418334ba4283b800796bd1993d"
+        },
+        {
+          "package": "tokenizers",
+          "version": "0.15.2",
+          "license": "Apache-2.0",
+          "url": "https://raw.githubusercontent.com/huggingface/tokenizers/v0.15.2/LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "filename": "LICENSE"
+        }
+      ],
       "dependencyModelRevisions": {
         "stabilityai/sd-vae-ft-mse": "31f26fdeee1355a5c34592e401dd41e45d25a493",
         "openai/whisper-tiny": "169d4a4341b33bc18d8881c4b69c2e104e1cc0af",

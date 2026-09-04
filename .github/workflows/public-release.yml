@@ -1,0 +1,121 @@
+name: BossAI Video Agent public release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag, for example v0.2.0
+        required: true
+        type: string
+      installer_url:
+        description: HTTPS URL for the approved Windows installer artifact
+        required: true
+        type: string
+      installer_sha256:
+        description: Expected lowercase or uppercase SHA-256 of the installer
+        required: true
+        type: string
+      prerelease:
+        description: Publish as a GitHub prerelease
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout public source repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Validate public source boundary
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $forbiddenExtensions = @('.gguf','.safetensors','.ckpt','.pth','.pt','.onnx','.bin','.exe','.dll')
+          $violations = @()
+          foreach ($path in (git ls-files)) {
+            $normalized = $path.Replace('\\','/')
+            $ext = [IO.Path]::GetExtension($normalized).ToLowerInvariant()
+            if ($forbiddenExtensions -contains $ext) { $violations += $normalized; continue }
+            if ($normalized.StartsWith('commercial-product/desktop/dist/')) { $violations += $normalized; continue }
+            if ($normalized.StartsWith('commercial-product/ui/dist/')) { $violations += $normalized; continue }
+            if ($normalized -match '(^|/)(key|token|cookie|session|activation)\.(txt|json|env)$') { $violations += $normalized }
+          }
+          if ($violations.Count -gt 0) {
+            $violations | ForEach-Object { Write-Host "FORBIDDEN: $_" }
+            throw 'Public source tree contains forbidden binary/model/credential material.'
+          }
+          if (-not (Test-Path LICENSE-HISTORICAL-MIT.md)) { throw 'Historical MIT notice is missing.' }
+
+      - name: Validate release inputs
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          INSTALLER_URL: ${{ inputs.installer_url }}
+          EXPECTED_SHA256: ${{ inputs.installer_sha256 }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:RELEASE_TAG -notmatch '^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$') {
+            throw 'tag must be a semantic version prefixed with v.'
+          }
+          $uri = [Uri]$env:INSTALLER_URL
+          if ($uri.Scheme -ne 'https') { throw 'installer_url must use HTTPS.' }
+          if ($env:EXPECTED_SHA256 -notmatch '^[A-Fa-f0-9]{64}$') { throw 'installer_sha256 must contain exactly 64 hexadecimal characters.' }
+
+      - name: Download approved installer
+        shell: pwsh
+        env:
+          INSTALLER_URL: ${{ inputs.installer_url }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Path release-assets -Force | Out-Null
+          Invoke-WebRequest -Uri $env:INSTALLER_URL -OutFile release-assets/BossAI-Video-Agent-Setup.exe -UseBasicParsing
+          if ((Get-Item release-assets/BossAI-Video-Agent-Setup.exe).Length -lt 1048576) {
+            throw 'Downloaded installer is unexpectedly small.'
+          }
+
+      - name: Verify SHA-256 and trusted Authenticode signature
+        shell: pwsh
+        env:
+          EXPECTED_SHA256: ${{ inputs.installer_sha256 }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installer = Resolve-Path release-assets/BossAI-Video-Agent-Setup.exe
+          $actual = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          $expected = $env:EXPECTED_SHA256.ToLowerInvariant()
+          if ($actual -ne $expected) { throw "SHA-256 mismatch. expected=$expected actual=$actual" }
+          $signature = Get-AuthenticodeSignature -LiteralPath $installer
+          if ($signature.Status -ne 'Valid' -or -not $signature.SignerCertificate) {
+            throw "Installer Authenticode signature is not valid: $($signature.Status)"
+          }
+          if (-not $signature.TimeStamperCertificate) { throw 'Installer has no trusted timestamp certificate.' }
+          "$actual  BossAI-Video-Agent-Setup.exe" | Set-Content -LiteralPath release-assets/SHA256SUMS.txt -Encoding ascii
+
+      - name: Ensure release notes and source policy are present
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $notes = Get-Content -LiteralPath RELEASE_NOTES.md -Raw
+          foreach ($required in @('中文', 'English', 'Free Personal', 'Business', 'source', 'MIT')) {
+            if (-not $notes.Contains($required)) { throw "RELEASE_NOTES.md is missing required marker: $required" }
+          }
+          $policy = Get-Content -LiteralPath PUBLIC_REPOSITORY_POLICY.md -Raw
+          if (-not $policy.Contains('Public-source')) { throw 'Public repository policy is not source-public.' }
+
+      - name: Create GitHub Release and upload assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $args = @('release', 'create', $env:RELEASE_TAG, 'release-assets/BossAI-Video-Agent-Setup.exe', 'release-assets/SHA256SUMS.txt', '--title', "BossAI Video Agent $env:RELEASE_TAG", '--notes-file', 'RELEASE_NOTES.md')
+          if ($env:PRERELEASE -eq 'true') { $args += '--prerelease' }
+          gh @args

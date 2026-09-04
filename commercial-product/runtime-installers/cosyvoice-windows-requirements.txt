@@ -1,0 +1,24 @@
+# BossAI Video Agent Windows inference dependency lock for pinned CosyVoice source revision
+# 074ca6dc9e80a2f424f1f74b48bdd7d3fea531cc.
+#
+# Scope: customer-side CosyVoice2 inference only.
+# Excluded intentionally: training, Gradio/FastAPI demos, TensorBoard, DeepSpeed,
+# TensorRT, ModelScope/WeText runtime downloading, PyWorld dataset processing,
+# and optional Matcha training/audio-dataset helpers.
+#
+# PyTorch/TorchAudio are installed separately from SHA-256-pinned official wheels.
+# huggingface_hub is installed separately by the installer and is used only for
+# installer-time pinned model retrieval, never for inference-time fallback downloads.
+
+conformer==0.3.2
+diffusers==0.29.0
+HyperPyYAML==1.2.3
+inflect==7.3.1
+numpy==1.26.4
+omegaconf==2.3.0
+onnxruntime==1.18.0
+openai-whisper==20231117
+protobuf==4.25
+soundfile==0.12.1
+transformers==4.51.3
+x-transformers==2.11.24

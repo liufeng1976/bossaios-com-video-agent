@@ -19,9 +19,7 @@ class BossAIOSBridgeError(RuntimeError):
 
 
 def _base_url() -> str:
-    raw = os.environ.get("BOSSAI_OS_BASE_URL", "").strip().rstrip("/")
-    if not raw:
-        return ""
+    raw = (os.environ.get("BOSSAI_OS_BASE_URL", "").strip() or "http://127.0.0.1:3001").rstrip("/")
     parsed = urllib.parse.urlparse(raw)
     if parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
         raise BossAIOSBridgeError(
@@ -94,17 +92,6 @@ def _request(method: str, path: str, *, body: dict[str, Any] | None = None, head
 
 
 def account_session() -> dict[str, Any]:
-    if not configured():
-        return {
-            "schemaVersion": "bossai.account-session.v1",
-            "accountRequired": True,
-            "serviceConfigured": False,
-            "authenticated": False,
-            "sessionStatus": "not_configured",
-            "account": None,
-            "commercial": None,
-            "nextAction": "connect_bossai_os",
-        }
     value = _request("GET", "/api/account/session")
     if not isinstance(value, dict) or value.get("schemaVersion") != "bossai.account-session.v1":
         raise BossAIOSBridgeError("BOSSAI_ACCOUNT_SESSION_INVALID", "BossAI OS returned an invalid account-session contract.")

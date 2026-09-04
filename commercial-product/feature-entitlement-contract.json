@@ -1,27 +1,33 @@
 {
-  "schema": "bossai.video-agent-feature-entitlement.v1",
+  "schema": "bossai.video-agent-freemium-entitlement.v3",
   "productId": "bossai-video-agent",
-  "authority": "bossai-headquarters-commerce",
+  "commercialAuthority": "bossai-headquarters-commerce",
   "upstreamSchema": "bossai.commercial-entitlement.v1",
-  "policy": "Production paid execution fails closed unless the installation has a verified active commercial entitlement and the requested BossAI Video Agent feature code is explicitly present in entitlement.features.",
-  "features": [
-    {
-      "code": "video.rewrite",
-      "label": "AI 文案改写",
-      "endpoint": "/api/llm/rewrite"
+  "policy": "Free Personal local mode is available without BossAI sign-in for personal/non-commercial local execution after license acceptance. Personal Pro, Business, Gateway use, paid services, points, quota, device binding and commercial authorization remain projected only from the existing BossAI authoritative entitlement. The Video Agent owns no commercial plan, points, quota, device-binding or billing ledger. BYOK never bypasses commercial entitlement.",
+  "tiers": {
+    "free-personal": {
+      "commercialUseAllowed": false,
+      "subscriptionRequired": false,
+      "quota": "local-unmetered-core; BossAI-managed quota applies only when authoritative online services are used"
     },
-    {
-      "code": "video.tts",
-      "label": "授权声音配音",
-      "endpoint": "/api/tts/generate"
+    "personal-pro": {
+      "commercialUseAllowed": false,
+      "subscriptionRequired": true,
+      "quota": "higher-authoritative-bossai-quota"
     },
-    {
-      "code": "video.digital-human",
-      "label": "授权数字人口播",
-      "endpoint": "/api/commercial/digital-human/render"
+    "business": {
+      "commercialUseAllowed": true,
+      "commercialLicenseRequired": true,
+      "byokMayBeAllowedOnlyWhenEntitled": true
     }
-  ],
-  "publishingFeatureReserved": "video.publish",
-  "publishingEnabled": false,
-  "internalPreviewBypassesFeatureGate": true
+  },
+  "coreFeatures": ["video.rewrite", "video.tts", "video.digital-human"],
+  "billingModes": ["bossai_points", "customer_byok"],
+  "points": {
+    "authority": "bossai-headquarters-commerce",
+    "localLedgerAuthoritative": false,
+    "gatewayTasksChargedByBossAIGateway": true,
+    "monthlyResetOwnedByVideoAgent": false
+  },
+  "currentGap": "The current BossAI OS customer-experience bridge exposes read-only commercial entitlement and receipts, but no satellite-product reserve/settle contract for locally executed Video Agent tasks. Therefore local-task monthly quota decrement/settlement must not be claimed complete until a versioned BossAI OS/Headquarters contract exists."
 }

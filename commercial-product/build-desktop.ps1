@@ -24,6 +24,8 @@ foreach ($required in @(
   $engine,
   (Join-Path $root 'customer-product-metadata.json'),
   (Join-Path $root 'customer-third-party-notices.json'),
+  (Join-Path (Split-Path -Parent $root) 'LICENSE'),
+  (Join-Path (Split-Path -Parent $root) 'COMMERCIAL_LICENSE.md'),
   (Join-Path $root 'runtime-installers\runtime-source-lock.json'),
   (Join-Path $root 'legal\capture-python-runtime-notices.py')
 )) {
@@ -49,6 +51,8 @@ try {
   Copy-Item -LiteralPath (Join-Path $root 'runtime-installers') -Destination $tempProduct -Recurse
   Copy-Item -LiteralPath (Join-Path $root 'customer-product-metadata.json') -Destination $tempProduct
   Copy-Item -LiteralPath (Join-Path $root 'customer-third-party-notices.json') -Destination $tempProduct
+  Copy-Item -LiteralPath (Join-Path (Split-Path -Parent $root) 'LICENSE') -Destination $temp
+  Copy-Item -LiteralPath (Join-Path (Split-Path -Parent $root) 'COMMERCIAL_LICENSE.md') -Destination $temp
   Copy-Item -LiteralPath (Join-Path $root 'legal\capture-python-runtime-notices.py') -Destination (Join-Path $tempProduct 'legal')
 
   Push-Location $tempDesktop
@@ -84,7 +88,7 @@ try {
   }
   Copy-Item -LiteralPath $built -Destination $output -Recurse
 
-  $installer = Get-ChildItem -LiteralPath $output -File -Filter 'BossAI-Video-Agent-*-Setup.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+  $installer = Get-ChildItem -LiteralPath $output -File -Filter 'BossAI-Video-Community-*-Setup.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
   $unpacked = Join-Path $output 'win-unpacked'
   Write-Host 'RESULT: BossAI Video Agent isolated desktop build passed.'
   Write-Host "Mode    : $Mode"

@@ -35,6 +35,11 @@ ENTITLEMENT_SCHEMA = "bossai.commercial-entitlement.v1"
 FEATURE_REWRITE = "video.rewrite"
 FEATURE_TTS = "video.tts"
 FEATURE_DIGITAL_HUMAN = "video.digital-human"
+CORE_FEATURES = frozenset({FEATURE_REWRITE, FEATURE_TTS, FEATURE_DIGITAL_HUMAN})
+TIER_FREE_PERSONAL = "free-personal"
+TIER_PERSONAL_PRO = "personal-pro"
+TIER_BUSINESS = "business"
+SUPPORTED_TIERS = frozenset({TIER_FREE_PERSONAL, TIER_PERSONAL_PRO, TIER_BUSINESS})
 
 VOICE_ID_RE = re.compile(r"^[0-9a-f]{32}$", re.I)
 AVATAR_ID_RE = re.compile(r"^[0-9a-f]{32}$", re.I)
@@ -118,6 +123,11 @@ class RuntimeInstallBody(BaseModel):
     profile: Literal["gpu", "cpu"] = "gpu"
 
 
+class EulaAcceptanceBody(BaseModel):
+    accepted: bool = False
+    locale: Literal["zh-CN", "en"] = "zh-CN"
+
+
 class AgentPairBody(BaseModel):
     rotate: bool = False
     clientName: str = Field(default="BossAI OS", min_length=1, max_length=120)
@@ -151,51 +161,153 @@ def _preview_enabled() -> bool:
     return os.environ.get("BOSSAI_VIDEO_COMMERCIAL_PREVIEW", "").strip() == "1"
 
 
+EULA_ACCEPTANCE_SCHEMA = "bossai.video-agent-eula-acceptance.v1"
+
+
+def _eula_acceptance_path() -> Path:
+    return data_root() / "eula-acceptance.json"
+
+
+def _eula_acceptance() -> dict[str, Any]:
+    path = _eula_acceptance_path()
+    if path.is_file():
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+            if value.get("schema") == EULA_ACCEPTANCE_SCHEMA:
+                return {
+                    "schema": EULA_ACCEPTANCE_SCHEMA,
+                    "accepted": bool(value.get("accepted")),
+                    "locale": str(value.get("locale") or "zh-CN"),
+                    "acceptedAt": str(value.get("acceptedAt") or ""),
+                    "productVersion": str(value.get("productVersion") or ""),
+                }
+        except (OSError, json.JSONDecodeError):
+            pass
+    return {
+        "schema": EULA_ACCEPTANCE_SCHEMA,
+        "accepted": False,
+        "locale": "zh-CN",
+        "acceptedAt": "",
+        "productVersion": PRODUCT_VERSION,
+    }
+
+
+def _accept_eula(locale: str) -> dict[str, Any]:
+    if locale not in {"zh-CN", "en"}:
+        raise HTTPException(400, "Unsupported locale.")
+    value = {
+        "schema": EULA_ACCEPTANCE_SCHEMA,
+        "accepted": True,
+        "locale": locale,
+        "acceptedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "productVersion": PRODUCT_VERSION,
+    }
+    path = _eula_acceptance_path()
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding="utf-8")
+    temporary.replace(path)
+    return value
+
+
+def _normalize_plan_tier(entitlement: dict[str, Any], tenant: dict[str, Any]) -> str:
+    plan_code = str(entitlement.get("planCode") or "").strip().lower()
+    plan_name = str(entitlement.get("planName") or "").strip().lower()
+    tenant_plan = str(tenant.get("plan") or "").strip().lower()
+    values = {plan_code, plan_name, tenant_plan}
+    if values & {"video-free", "video-free-personal", "free-personal", "free personal", "personal free", "free"}:
+        return TIER_FREE_PERSONAL
+    if values & {"video-pro", "video-personal-pro", "personal-pro", "personal pro", "pro"}:
+        return TIER_PERSONAL_PRO
+    if values & {"video-business", "business", "commercial", "enterprise", "video-enterprise"}:
+        return TIER_BUSINESS
+    return "unknown"
+
+
 def _entitlement_snapshot() -> dict[str, Any]:
     preview = _preview_enabled()
+    eula = _eula_acceptance()
     base = {
-        "schema": "bossai.video-agent-entitlement-status.v1",
+        "schema": "bossai.video-agent-entitlement-status.v2",
         "productId": PRODUCT_ID,
         "productVersion": PRODUCT_VERSION,
         "verified": False,
-        "licenseActive": False,
-        "paidExecutionAllowed": False,
+        "eulaAccepted": bool(eula.get("accepted")),
+        "eula": eula,
+        "executionAllowed": False,
+        "gatewayExecutionAllowed": False,
         "internalPreviewAllowed": preview,
         "authority": "bossai-headquarters-commerce",
+        "quotaAuthority": "bossai-headquarters-commerce",
         "upstreamSchema": ENTITLEMENT_SCHEMA,
         "account": None,
+        "tier": "unknown",
         "planCode": "",
         "planName": "",
         "membershipStatus": "",
-        "walletAvailable": 0,
-        "walletReserved": 0,
-        "walletFrozen": False,
+        "licenseActive": False,
+        "deviceRegistered": False,
+        "quotaRemaining": 0,
+        "quotaReserved": 0,
+        "quotaFrozen": False,
+        "quotaResetAt": "",
+        "quotaPeriod": "",
+        "allowedBillingModes": [],
+        "defaultBillingMode": "",
+        "byokAllowed": False,
+        "pointsChargedForAi": False,
+        "businessUseAllowed": False,
+        "upgradeAvailable": True,
         "features": [],
     }
     if preview:
         return {
             **base,
             "status": "preview",
-            "reason": "Internal commercial preview is explicitly enabled; no paid customer entitlement is implied.",
+            "tier": "developer-preview",
+            "verified": True,
+            "executionAllowed": True,
+            "gatewayExecutionAllowed": True,
+            "features": sorted(CORE_FEATURES),
+            "reason": "Internal preview is enabled. This does not create or imply a customer subscription, quota, License, or entitlement.",
         }
-    if not bossai_os_bridge.configured():
+
+    def local_free(reason: str) -> dict[str, Any]:
+        accepted = bool(eula.get("accepted"))
         return {
             **base,
-            "status": "unconfigured",
-            "reason": "BossAI OS is not connected on this installation.",
+            "status": "local_free" if accepted else "eula_required",
+            "tier": TIER_FREE_PERSONAL,
+            "planCode": "local-free-personal",
+            "planName": "Free Personal (Local)",
+            "membershipStatus": "local",
+            "verified": True,
+            "executionAllowed": accepted,
+            "gatewayExecutionAllowed": False,
+            "localFreeMode": True,
+            "deviceRegistered": False,
+            "quotaAuthority": "none-local-free",
+            "quotaPeriod": "local-unmetered",
+            "upgradeAvailable": True,
+            "businessUseAllowed": False,
+            "features": sorted(CORE_FEATURES),
+            "reason": (
+                "Accept the BossAI Video Agent license terms before local Free Personal execution."
+                if not accepted
+                else f"Local Free Personal is active for personal/non-commercial use. {reason} Commercial use still requires a verified BossAI Business entitlement."
+            ),
         }
+
+    if not bossai_os_bridge.configured():
+        return local_free("BossAI commercial services are not configured on this installation.")
     try:
         session = bossai_os_bridge.account_session()
     except bossai_os_bridge.BossAIOSBridgeError as exc:
-        return {**base, "status": "unavailable", "reason": str(exc)}
+        return local_free(f"BossAI commercial services are temporarily unavailable: {exc}")
     account = session.get("account") if isinstance(session, dict) else None
     base["account"] = account
     if not bool(session.get("authenticated")):
-        return {
-            **base,
-            "status": "account_required",
-            "reason": "Sign in with a BossAI account to verify the commercial entitlement.",
-        }
+        return local_free("No BossAI account is signed in.")
+
     try:
         raw = bossai_os_bridge.entitlement(installation_id=_installation_id(), product_version=PRODUCT_VERSION)
     except bossai_os_bridge.BossAIOSBridgeError as exc:
@@ -203,26 +315,82 @@ def _entitlement_snapshot() -> dict[str, Any]:
 
     entitlement = raw.get("entitlement") or {}
     device = raw.get("device") or {}
+    tenant = raw.get("tenant") or {}
+    tier = _normalize_plan_tier(entitlement, tenant)
+    plan_code = str(entitlement.get("planCode") or "")
+    plan_name = str(entitlement.get("planName") or "")
+    membership_status = str(entitlement.get("membershipStatus") or "").strip().lower()
     license_active = bool(entitlement.get("licenseActive"))
     product_allowed = bool(entitlement.get("canUseLocalBusinessProduct"))
-    paid_ai_allowed = bool(entitlement.get("canCreatePaidAiTasks"))
+    gateway_allowed = bool(entitlement.get("canCreatePaidAiTasks"))
     device_registered = bool(device.get("registered"))
-    paid_execution = license_active and product_allowed and paid_ai_allowed and device_registered
+    quota_remaining = max(0, int(entitlement.get("walletAvailable") or 0))
+    quota_reserved = max(0, int(entitlement.get("walletReserved") or 0))
+    quota_frozen = bool(entitlement.get("walletFrozen"))
+    features = [str(value).strip() for value in (entitlement.get("features") or []) if str(value).strip()]
+    allowed_billing_modes = [str(value).strip() for value in (entitlement.get("allowedBillingModes") or []) if str(value).strip()]
+    default_billing_mode = str(entitlement.get("defaultBillingMode") or "").strip()
+    membership_active = membership_status in {"active", "free", "trial"}
+    tier_license_ok = tier == TIER_FREE_PERSONAL or (tier in {TIER_PERSONAL_PRO, TIER_BUSINESS} and license_active)
+    entitlement_execution_allowed = bool(
+        tier in SUPPORTED_TIERS
+        and membership_active
+        and tier_license_ok
+        and product_allowed
+        and device_registered
+        and not quota_frozen
+        and quota_remaining > 0
+    )
+    execution_allowed = bool(entitlement_execution_allowed and eula.get("accepted"))
+    status = "active" if execution_allowed else "restricted"
+    if tier == "unknown":
+        status = "unknown_plan"
+    elif entitlement_execution_allowed and not eula.get("accepted"):
+        status = "eula_required"
+    elif not device_registered:
+        status = "device_required"
+    elif quota_frozen:
+        status = "quota_frozen"
+    elif quota_remaining <= 0:
+        status = "quota_exhausted"
+    elif not membership_active or not tier_license_ok or not product_allowed:
+        status = "restricted"
+    reason = str(entitlement.get("accessReason") or "")
+    if not reason:
+        reason = {
+            "active": "BossAI entitlement is active.",
+            "unknown_plan": "BossAI returned a plan that this product version does not recognize.",
+            "eula_required": "Accept the BossAI Video Agent EULA for this version before AI execution.",
+            "device_required": "This installation is not registered for the current BossAI account.",
+            "quota_frozen": "The authoritative BossAI quota wallet is frozen.",
+            "quota_exhausted": "The current monthly BossAI quota is exhausted.",
+            "restricted": "The current BossAI plan or License does not authorize this execution.",
+        }.get(status, "BossAI entitlement is unavailable.")
     return {
         **base,
-        "status": "active" if paid_execution else "restricted",
+        "status": status,
         "verified": True,
+        "executionAllowed": execution_allowed,
+        "gatewayExecutionAllowed": bool(execution_allowed and gateway_allowed),
+        "reason": reason,
+        "tier": tier,
+        "planCode": plan_code,
+        "planName": plan_name,
+        "membershipStatus": membership_status,
         "licenseActive": license_active,
-        "paidExecutionAllowed": paid_execution,
-        "reason": str(entitlement.get("accessReason") or ("Commercial entitlement is active." if paid_execution else "Commercial entitlement does not permit paid AI execution.")),
-        "planCode": str(entitlement.get("planCode") or ""),
-        "planName": str(entitlement.get("planName") or ""),
-        "membershipStatus": str(entitlement.get("membershipStatus") or ""),
-        "walletAvailable": int(entitlement.get("walletAvailable") or 0),
-        "walletReserved": int(entitlement.get("walletReserved") or 0),
-        "walletFrozen": bool(entitlement.get("walletFrozen")),
-        "features": [str(value) for value in (entitlement.get("features") or [])],
         "deviceRegistered": device_registered,
+        "quotaRemaining": quota_remaining,
+        "quotaReserved": quota_reserved,
+        "quotaFrozen": quota_frozen,
+        "quotaResetAt": str(entitlement.get("quotaResetAt") or ""),
+        "quotaPeriod": str(entitlement.get("quotaPeriod") or ""),
+        "allowedBillingModes": allowed_billing_modes,
+        "defaultBillingMode": default_billing_mode,
+        "byokAllowed": "customer_byok" in allowed_billing_modes,
+        "pointsChargedForAi": default_billing_mode == "bossai_points",
+        "businessUseAllowed": bool(tier == TIER_BUSINESS and license_active and membership_active),
+        "upgradeAvailable": tier != TIER_BUSINESS,
+        "features": features,
         "entitlementRevision": str(raw.get("entitlementRevision") or ""),
         "generatedAt": str(raw.get("generatedAt") or ""),
     }
@@ -232,8 +400,8 @@ def require_execution(feature: str) -> None:
     if _preview_enabled():
         return
     snapshot = _entitlement_snapshot()
-    if not bool(snapshot.get("verified")) or not bool(snapshot.get("paidExecutionAllowed")):
-        raise HTTPException(403, str(snapshot.get("reason") or "BossAI commercial execution is not entitled on this installation."))
+    if not bool(snapshot.get("verified")) or not bool(snapshot.get("executionAllowed")):
+        raise HTTPException(403, str(snapshot.get("reason") or "BossAI entitlement does not authorize execution on this installation."))
     features = {str(value).strip() for value in (snapshot.get("features") or []) if str(value).strip()}
     if feature not in features:
         raise HTTPException(403, f"Current BossAI plan does not include feature: {feature}")
@@ -386,6 +554,17 @@ def _runtime_root() -> Path:
     return root
 
 
+def _runtime_download_root() -> Path:
+    explicit = os.environ.get("BOSSAI_VIDEO_DOWNLOAD_ROOT", "").strip().strip('"')
+    if explicit:
+        root = Path(explicit).expanduser().resolve()
+    else:
+        base = data_root()
+        root = (base.parent if base.name.lower() == "data" else base) / "downloads"
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
 def _runtime_support_root() -> Path:
     explicit = os.environ.get("BOSSAI_VIDEO_RUNTIME_SUPPORT_ROOT", "").strip().strip('"')
     if explicit:
@@ -492,7 +671,7 @@ def _agent_tool_manifest() -> list[dict[str, Any]]:
         {
             "id": "bossai.video.product.read",
             "name": "读取视频产品状态",
-            "description": "读取 BossAI Video Agent 产品、版本和本地 runtime 就绪状态。",
+            "description": "读取 BossAI Video Agent 产品、版本、Freemium entitlement 和本地 runtime 就绪状态。",
             "access": "read",
             "async": False,
             "inputSchema": {"type": "object", "additionalProperties": False},
@@ -535,7 +714,7 @@ def _agent_tool_manifest() -> list[dict[str, Any]]:
             "description": "调用本地 BossAI 视频文案能力生成或改写口播稿。",
             "access": "execute",
             "async": False,
-            "entitlementFeature": FEATURE_REWRITE,
+            "licenseTier": "freemium-core",
             "inputSchema": RewriteBody.model_json_schema(),
             **local_generate,
         },
@@ -545,7 +724,7 @@ def _agent_tool_manifest() -> list[dict[str, Any]]:
             "description": "使用客户已授权参考声音生成本地语音任务。",
             "access": "execute",
             "async": True,
-            "entitlementFeature": FEATURE_TTS,
+            "licenseTier": "freemium-core",
             "inputSchema": TtsBody.model_json_schema(),
             **local_generate,
         },
@@ -573,7 +752,7 @@ def _agent_tool_manifest() -> list[dict[str, Any]]:
             "description": "使用客户授权头像视频和本产品生成的音频创建本地数字人口播视频。",
             "access": "execute",
             "async": True,
-            "entitlementFeature": FEATURE_DIGITAL_HUMAN,
+            "licenseTier": "freemium-core",
             "inputSchema": DigitalHumanBody.model_json_schema(),
             **local_generate,
         },
@@ -660,7 +839,8 @@ def _agent_execute_tool(tool_id: str, input_value: dict[str, Any]) -> Any:
 
 _RUNTIME_ENV_KEYS = {
     "BOSSAI_QWEN_MODEL",
-    "BOSSAI_QWEN_PYTHON",
+    "BOSSAI_QWEN_SERVER",
+    "BOSSAI_QWEN_GPU_LAYERS",
     "BOSSAI_COSYVOICE_ROOT",
     "BOSSAI_COSYVOICE_MODEL_DIR",
     "BOSSAI_COSYVOICE_PYTHON",
@@ -715,6 +895,11 @@ def _runtime_install_center() -> dict[str, Any]:
         "busy": _RUNTIME_INSTALL_LOCK.locked(),
         "localControlRequired": True,
         "powershellReady": bool(powershell),
+        "storage": {
+            "runtimeRoot": str(_runtime_root()),
+            "downloadRoot": str(_runtime_download_root()),
+            "runtimeSupportRoot": str(_runtime_support_root()),
+        },
         "support": {
             "python310": {
                 "ready": python_ready,
@@ -730,8 +915,8 @@ def _runtime_install_center() -> dict[str, Any]:
             "qwen": {
                 **setup["qwen"],
                 "installerAvailable": (installers / "install-qwen.ps1").is_file(),
-                "installable": bool(powershell and python_ready),
-                "requires": ["python310"],
+                "installable": bool(powershell),
+                "requires": [],
             },
             "cosyvoice2": {
                 **setup["cosyvoice2"],
@@ -792,6 +977,17 @@ def _append_runtime_log(job_id: str, line: str) -> None:
         job["message"] = clean[:500]
 
 
+def _runtime_proxy_installer_args() -> list[str]:
+    args: list[str] = []
+    proxy = str(os.environ.get("BOSSAI_RUNTIME_PROXY_URL") or "").strip()
+    download_proxy = str(os.environ.get("BOSSAI_RUNTIME_DOWNLOAD_PROXY_URL") or "").strip()
+    if proxy:
+        args.extend(["-ProxyUrl", proxy])
+    if download_proxy:
+        args.extend(["-DownloadProxyUrl", download_proxy])
+    return args
+
+
 def _runtime_installer_command(component: str, profile: str) -> list[str]:
     powershell = _powershell_executable()
     if not powershell:
@@ -799,22 +995,20 @@ def _runtime_installer_command(component: str, profile: str) -> list[str]:
     installers = _runtime_installers_root()
     python_exe = _private_python310()
     runtime_root = _runtime_root()
+    download_root = _runtime_download_root()
     base = [powershell, "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]
     if component == "python310":
         script = installers / "install-python310.ps1"
         args = [str(script), "-TargetDir", str(_runtime_support_root() / "python310"), "-AcceptLicense"]
     elif component == "qwen":
-        if not python_exe.is_file():
-            raise HTTPException(409, "Install the BossAI private Python 3.10 runtime first.")
         script = installers / "install-qwen.ps1"
-        flavor = "cu124" if profile == "gpu" else "cpu"
-        args = [str(script), "-TargetDir", str(runtime_root / "qwen2.5-7b-instruct"), "-PythonExe", str(python_exe), "-WheelFlavor", flavor, "-AcceptLicense"]
+        args = [str(script), "-TargetDir", str(runtime_root / "qwen2.5-7b-instruct"), "-DownloadRoot", str(download_root), "-Profile", profile, "-AcceptLicense"]
     elif component == "cosyvoice2":
         if not python_exe.is_file():
             raise HTTPException(409, "Install the BossAI private Python 3.10 runtime first.")
         script = installers / "install-cosyvoice2.ps1"
-        flavor = "cu118" if profile == "gpu" else "cpu"
-        args = [str(script), "-TargetDir", str(runtime_root / "cosyvoice2-0.5b"), "-PythonExe", str(python_exe), "-TorchFlavor", flavor, "-AcceptLicense"]
+        flavor = "cu121" if profile == "gpu" else "cpu"
+        args = [str(script), "-TargetDir", str(runtime_root / "cosyvoice2-0.5b"), "-DownloadRoot", str(download_root), "-PythonExe", str(python_exe), "-TorchFlavor", flavor, *_runtime_proxy_installer_args(), "-AcceptLicense"]
     elif component == "musetalk":
         if profile != "gpu":
             raise HTTPException(400, "MuseTalk commercial runtime currently requires the GPU profile.")
@@ -824,12 +1018,22 @@ def _runtime_installer_command(component: str, profile: str) -> list[str]:
         if not ffmpeg:
             raise HTTPException(409, "FFmpeg is required before MuseTalk can be installed.")
         script = installers / "install-musetalk.ps1"
-        args = [str(script), "-TargetDir", str(runtime_root / "musetalk"), "-PythonExe", str(python_exe), "-FfmpegExe", ffmpeg, "-AcceptLicense"]
+        args = [str(script), "-TargetDir", str(runtime_root / "musetalk"), "-DownloadRoot", str(download_root), "-PythonExe", str(python_exe), "-FfmpegExe", ffmpeg, *_runtime_proxy_installer_args(), "-AcceptLicense"]
     else:
         raise HTTPException(404, "Unknown BossAI runtime component.")
     if not script.is_file():
         raise HTTPException(503, f"BossAI runtime installer is missing: {script.name}")
     return base + args
+
+
+def _restore_installed_runtime_env() -> None:
+    for component in ("qwen", "cosyvoice2", "musetalk"):
+        _apply_installed_runtime_env(component)
+
+
+@app.on_event("startup")
+def restore_installed_runtime_env_on_startup() -> None:
+    _restore_installed_runtime_env()
 
 
 def _run_runtime_installer(job_id: str, component: str, command: list[str]) -> None:
@@ -897,7 +1101,9 @@ def commercial_product():
             "id": PRODUCT_ID,
             "name": PRODUCT_NAME,
             "version": PRODUCT_VERSION,
-            "edition": "Commercial Preview",
+            "edition": "Freemium Desktop",
+            "tiers": [TIER_FREE_PERSONAL, TIER_PERSONAL_PRO, TIER_BUSINESS],
+            "languages": ["zh-CN", "en"],
             "installationId": _installation_id(),
             "commercialAuthority": "bossai-headquarters-commerce",
             "entitlementSchema": ENTITLEMENT_SCHEMA,
@@ -916,7 +1122,7 @@ def agent_manifest(request: Request):
             "schema": "bossai.video-agent-tool-manifest.v1",
             "product": {"id": PRODUCT_ID, "name": PRODUCT_NAME, "version": PRODUCT_VERSION},
             "agentPlatform": "bossai-os",
-            "harness": "bossaiworkforce",
+            "harness": "bossai-os-governed-codex",
             "toolRegistryAuthority": "bossai-os",
             "executionEndpoint": "/api/agent/v1/invoke",
             "pairingEndpoint": "/api/agent/v1/pair",
@@ -1027,7 +1233,20 @@ def account_session():
     try:
         return {"success": True, "data": bossai_os_bridge.account_session()}
     except bossai_os_bridge.BossAIOSBridgeError as exc:
-        raise HTTPException(exc.status, str(exc)) from exc
+        return {
+            "success": True,
+            "data": {
+                "schemaVersion": "bossai.account-session.v1",
+                "accountRequired": True,
+                "serviceConfigured": False,
+                "authenticated": False,
+                "sessionStatus": "unavailable",
+                "account": None,
+                "commercial": None,
+                "nextAction": "start_bossai_os",
+                "reason": str(exc),
+            },
+        }
 
 
 @app.post("/api/account/challenges")
@@ -1055,6 +1274,31 @@ def account_logout():
         return {"success": True, "data": bossai_os_bridge.logout()}
     except bossai_os_bridge.BossAIOSBridgeError as exc:
         raise HTTPException(exc.status, str(exc)) from exc
+
+
+@app.get("/api/license/usage")
+def license_usage():
+    return {"success": True, "data": _entitlement_snapshot()}
+
+
+@app.get("/api/license/eula")
+def license_eula_status():
+    return {"success": True, "data": _eula_acceptance()}
+
+
+@app.post("/api/license/eula")
+def license_eula_accept(body: EulaAcceptanceBody):
+    if not body.accepted:
+        raise HTTPException(400, "BossAI Video Agent EULA acceptance is required.")
+    return {"success": True, "data": _accept_eula(body.locale)}
+
+
+@app.post("/api/license/usage")
+def license_usage_update():
+    raise HTTPException(
+        410,
+        "Local plan selection is disabled. Free Personal, Personal Pro, Business, Points, quota, device binding and entitlement are managed by the existing BossAI commercial authority.",
+    )
 
 
 @app.get("/api/commercial/entitlement")
@@ -1358,7 +1602,7 @@ def finalize_video(body: FinalVideoBody):
             "fileUrl": f"/api/commercial/video/final/{final_video_id}/file",
             "downloadName": f"{project_name}.mp4",
             "sizeBytes": target.stat().st_size,
-            "sourceType": "bossai-commercial-digital-human",
+            "sourceType": "bossai-video-agent-digital-human",
         },
     }
 
@@ -1397,7 +1641,7 @@ def prepare_commercial_publish(body: PublishPrepareBody):
             "manualExportAllowed": True,
             "approvalRequired": True,
             "sizeBytes": path.stat().st_size,
-            "reason": "BossAI external publish is intentionally fail-closed in Commercial Preview. Export the final video locally; automated publishing will require governed approval and an authenticated platform account.",
+            "reason": "BossAI external publish is intentionally fail-closed. Export the final video locally; automated publishing requires governed approval and an authenticated platform account.",
         },
     }
 

@@ -1,0 +1,65 @@
+name: Bug report / 问题反馈
+description: Report a BossAI Agent product issue without posting secrets or customer data. / 反馈 BossAI Agent 产品问题，请勿提交密钥或客户数据。
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a BossAI Agent issue. Do **not** post passwords, API keys, cookies, device credentials, customer media, private logs, or other sensitive data.
+
+        感谢反馈 BossAI Agent 问题。请**不要**提交密码、API Key、Cookie、设备凭据、客户媒体、私有日志或其他敏感信息。
+  - type: input
+    id: version
+    attributes:
+      label: Version / 版本
+      placeholder: e.g. 0.2.0
+    validations:
+      required: true
+  - type: dropdown
+    id: language
+    attributes:
+      label: Interface language / 界面语言
+      options:
+        - 简体中文
+        - English
+    validations:
+      required: true
+  - type: dropdown
+    id: plan
+    attributes:
+      label: Plan / 套餐
+      options:
+        - Free Personal
+        - Personal Pro
+        - Business
+        - Unknown / 不确定
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened? / 发生了什么？
+      description: Describe the problem and the user-visible error. Do not paste secrets. / 描述问题和界面错误，请勿粘贴敏感凭据。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps / 复现步骤
+      placeholder: "1. ...\n2. ...\n3. ..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result / 预期结果
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety confirmation / 安全确认
+      options:
+        - label: I removed passwords, API keys, cookies, device credentials, customer media and other sensitive information. / 我已移除密码、API Key、Cookie、设备凭据、客户媒体及其他敏感信息。
+          required: true

@@ -1,8 +1,10 @@
 [CmdletBinding()]
 param(
   [string]$TargetDir = "",
-  [Parameter(Mandatory = $true)][string]$PythonExe,
-  [ValidateSet('cpu','cu118','cu124')][string]$WheelFlavor = 'cpu',
+  [string]$DownloadRoot = "",
+  [ValidateSet('gpu','cpu')][string]$Profile = 'gpu',
+  [string]$ModelSourceDir = "",
+  [string]$LlamaZipSource = "",
   [switch]$AcceptLicense
 )
 
@@ -10,31 +12,44 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 Set-StrictMode -Version Latest
 
-if (-not $AcceptLicense) { throw 'Qwen and llama-cpp-python license notices must be reviewed and accepted before installation.' }
+if (-not $AcceptLicense) { throw 'Qwen and llama.cpp license notices must be reviewed and accepted before installation.' }
 $lockPath = Join-Path $PSScriptRoot 'runtime-source-lock.json'
 $lock = Get-Content -LiteralPath $lockPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $qwen = $lock.components.'qwen2.5-7b-instruct'
 if (-not $qwen) { throw 'Qwen source lock is missing.' }
+$llama = $qwen.inferenceRuntime
+if (-not $llama) { throw 'Pinned llama.cpp inference runtime is missing from source lock.' }
 
 if (-not $TargetDir) {
   if (-not $env:LOCALAPPDATA) { throw 'LOCALAPPDATA is unavailable; pass -TargetDir explicitly.' }
   $TargetDir = Join-Path $env:LOCALAPPDATA 'BossAI\VideoAgent\runtimes\qwen2.5-7b-instruct'
 }
 $TargetDir = [System.IO.Path]::GetFullPath($TargetDir)
-$PythonExe = [System.IO.Path]::GetFullPath($PythonExe)
-if (-not (Test-Path -LiteralPath $PythonExe -PathType Leaf)) { throw "Python executable is missing: $PythonExe" }
 $existingManifest = Join-Path $TargetDir 'runtime.json'
-if (Test-Path -LiteralPath $existingManifest -PathType Leaf) {
-  throw "Qwen runtime is already installed: $TargetDir"
-}
+if (Test-Path -LiteralPath $existingManifest -PathType Leaf) { throw "Qwen runtime is already installed: $TargetDir" }
 $InstallDir = "$TargetDir.installing-$([guid]::NewGuid().ToString('N'))"
-$pythonVersion = (& $PythonExe -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" | Select-Object -Last 1).Trim()
-if ($LASTEXITCODE -ne 0 -or $pythonVersion -notin @('3.10','3.11','3.12')) { throw "Qwen runtime requires Python 3.10-3.12. Current: $pythonVersion" }
+$downloadRoot = if ($DownloadRoot) { [System.IO.Path]::GetFullPath($DownloadRoot) } elseif ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA 'BossAI\VideoAgent\downloads' } else { Join-Path ([System.IO.Path]::GetTempPath()) 'BossAI-VideoAgent-Downloads' }
+New-Item -ItemType Directory -Path $downloadRoot -Force | Out-Null
 
-function Run([string]$Command, [string[]]$Arguments) {
-  Write-Output ("BOSSAI_RUN " + $Command + " " + ($Arguments -join ' '))
-  & $Command @Arguments
-  if ($LASTEXITCODE -ne 0) { throw "Command failed with exit code $LASTEXITCODE`: $Command" }
+function Verify-Hash([string]$Path, [string]$Expected, [string]$Label) {
+  if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "$Label is missing: $Path" }
+  $actual = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+  if ($actual -ne ([string]$Expected).ToLowerInvariant()) { throw "$Label SHA-256 mismatch. Expected $Expected, got $actual" }
+}
+
+function Download-Verified([string]$Url, [string]$Destination, [string]$ExpectedHash, [string]$Label) {
+  if (Test-Path -LiteralPath $Destination -PathType Leaf) {
+    try { Verify-Hash $Destination $ExpectedHash $Label; return } catch { Remove-Item -LiteralPath $Destination -Force -ErrorAction SilentlyContinue }
+  }
+  Write-Output "BOSSAI_STEP Download $Label"
+  $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
+  if ($curl) {
+    & $curl.Source -L --fail --retry 5 --retry-delay 2 --continue-at - -o $Destination $Url
+    if ($LASTEXITCODE -ne 0) { throw "$Label download failed with exit code $LASTEXITCODE" }
+  } else {
+    Invoke-WebRequest -Uri $Url -OutFile $Destination -UseBasicParsing
+  }
+  Verify-Hash $Destination $ExpectedHash $Label
 }
 
 function Commit-Install([string]$StagingDir, [string]$FinalDir) {
@@ -42,18 +57,13 @@ function Commit-Install([string]$StagingDir, [string]$FinalDir) {
   if (-not (Test-Path -LiteralPath $parent)) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
   $quarantine = ''
   if (Test-Path -LiteralPath $FinalDir) {
-    if (Test-Path -LiteralPath (Join-Path $FinalDir 'runtime.json') -PathType Leaf) {
-      throw "Refusing to replace an installed Qwen runtime: $FinalDir"
-    }
+    if (Test-Path -LiteralPath (Join-Path $FinalDir 'runtime.json') -PathType Leaf) { throw "Refusing to replace an installed Qwen runtime: $FinalDir" }
     $quarantine = "$FinalDir.incomplete-$([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())"
     Move-Item -LiteralPath $FinalDir -Destination $quarantine
   }
-  try {
-    Move-Item -LiteralPath $StagingDir -Destination $FinalDir
-  } catch {
-    if ($quarantine -and -not (Test-Path -LiteralPath $FinalDir) -and (Test-Path -LiteralPath $quarantine)) {
-      Move-Item -LiteralPath $quarantine -Destination $FinalDir
-    }
+  try { Move-Item -LiteralPath $StagingDir -Destination $FinalDir }
+  catch {
+    if ($quarantine -and -not (Test-Path -LiteralPath $FinalDir) -and (Test-Path -LiteralPath $quarantine)) { Move-Item -LiteralPath $quarantine -Destination $FinalDir }
     throw
   }
   if ($quarantine) { Remove-Item -LiteralPath $quarantine -Recurse -Force -ErrorAction SilentlyContinue }
@@ -61,69 +71,84 @@ function Commit-Install([string]$StagingDir, [string]$FinalDir) {
 
 New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 try {
-$venvDir = Join-Path $InstallDir 'venv'
-$venvPython = Join-Path $venvDir 'Scripts\python.exe'
-if (-not (Test-Path -LiteralPath $venvPython)) { Run $PythonExe @('-m','venv',$venvDir) }
-Run $venvPython @('-m','pip','install','pip==25.1.1','setuptools==80.9.0','wheel==0.45.1','huggingface_hub==0.30.2')
+  $runtimeDir = Join-Path $InstallDir 'llama.cpp'
+  $modelDir = Join-Path $InstallDir 'model'
+  $licensesDir = Join-Path $InstallDir 'licenses'
+  New-Item -ItemType Directory -Path $runtimeDir,$modelDir,$licensesDir -Force | Out-Null
 
-$wheelIndex = switch ($WheelFlavor) {
-  'cu118' { 'https://abetlen.github.io/llama-cpp-python/whl/cu118' }
-  'cu124' { 'https://abetlen.github.io/llama-cpp-python/whl/cu124' }
-  default { 'https://abetlen.github.io/llama-cpp-python/whl/cpu' }
-}
-Run $venvPython @('-m','pip','install','llama-cpp-python==0.3.34','--extra-index-url',$wheelIndex)
+  $zipPath = if ($LlamaZipSource) { [System.IO.Path]::GetFullPath($LlamaZipSource) } else { Join-Path $downloadRoot ([string]$llama.artifact) }
+  if ($LlamaZipSource) { Verify-Hash $zipPath ([string]$llama.sha256) 'llama.cpp Vulkan runtime' }
+  else { Download-Verified ([string]$llama.url) $zipPath ([string]$llama.sha256) 'llama.cpp Vulkan runtime' }
+  Expand-Archive -LiteralPath $zipPath -DestinationPath $runtimeDir -Force
+  $serverExe = Get-ChildItem -LiteralPath $runtimeDir -Recurse -File -Filter 'llama-server.exe' | Select-Object -First 1
+  if (-not $serverExe) { throw 'Pinned llama.cpp package does not contain llama-server.exe.' }
+  $previousPreference = $ErrorActionPreference
+  try {
+    $ErrorActionPreference = 'Continue'
+    $versionText = (& $serverExe.FullName --version 2>&1 | Out-String)
+    $versionExitCode = $LASTEXITCODE
+  } finally { $ErrorActionPreference = $previousPreference }
+  $expectedBuild = ([string]$llama.release).TrimStart('b')
+  if ($versionExitCode -ne 0 -or $versionText -notmatch ("build\s+" + [regex]::Escape($expectedBuild)) -or $versionText -notmatch [regex]::Escape([string]$llama.commit)) { throw "llama.cpp release verification failed: $versionText" }
 
-$hfExe = Join-Path $venvDir 'Scripts\hf.exe'
-if (-not (Test-Path -LiteralPath $hfExe)) { throw "Hugging Face CLI is missing: $hfExe" }
-$modelDir = Join-Path $InstallDir 'model'
-New-Item -ItemType Directory -Path $modelDir -Force | Out-Null
-$fileNames = @($qwen.files | ForEach-Object { [string]$_ })
-if ($fileNames.Count -ne 2) { throw 'Pinned Qwen Q4_K_M split file list is invalid.' }
-Run $hfExe @('download',[string]$qwen.repository,'--revision',[string]$qwen.revision,'--local-dir',$modelDir,'--include',$fileNames[0],$fileNames[1],'README.md','LICENSE')
-foreach ($name in $fileNames) {
-  $path = Join-Path $modelDir $name
-  if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Pinned Qwen model shard is missing: $path" }
-}
-
-# llama.cpp split GGUF loading starts from shard 1 and resolves the sibling shard automatically.
-$modelEntry = Join-Path $modelDir $fileNames[0]
-$probe = @'
-from llama_cpp import Llama
-import sys
-m = Llama(model_path=sys.argv[1], n_ctx=256, n_gpu_layers=0, verbose=False)
-print('BOSSAI_QWEN_MODEL_OK')
-'@
-$probePath = Join-Path $InstallDir 'probe.py'
-$probe | Set-Content -LiteralPath $probePath -Encoding UTF8
-try { Run $venvPython @($probePath,$modelEntry) } finally { Remove-Item -LiteralPath $probePath -Force -ErrorAction SilentlyContinue }
-
-$licensesDir = Join-Path $InstallDir 'licenses'
-New-Item -ItemType Directory -Path $licensesDir -Force | Out-Null
-$modelLicense = Join-Path $modelDir 'LICENSE'
-if (Test-Path -LiteralPath $modelLicense) { Copy-Item -LiteralPath $modelLicense -Destination (Join-Path $licensesDir 'Qwen-LICENSE.txt') -Force }
-$captureNotices = Join-Path (Split-Path -Parent $PSScriptRoot) 'legal\capture-python-runtime-notices.py'
-if (-not (Test-Path -LiteralPath $captureNotices -PathType Leaf)) { throw "BossAI runtime notice capture tool is missing: $captureNotices" }
-Run $venvPython @($captureNotices,'--component','qwen2.5-7b-instruct','--out',$licensesDir)
-
-$runtimeManifest = [ordered]@{
-  schema = 'bossai.video-agent-installed-runtime.v1'
-  component = 'qwen2.5-7b-instruct'
-  installedAt = [DateTimeOffset]::UtcNow.ToString('o')
-  source = [ordered]@{ repository=[string]$qwen.repository; revision=[string]$qwen.revision; variant=[string]$qwen.variant }
-  inference = [ordered]@{ package='llama-cpp-python'; version='0.3.34'; wheelFlavor=$WheelFlavor }
-  licenseEvidence = 'licenses/python-dependency-notices.json'
-  files = @($fileNames | ForEach-Object {
-    $path = Join-Path $modelDir $_
-    [ordered]@{ name=$_; bytes=(Get-Item -LiteralPath $path).Length; sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() }
-  })
-  env = [ordered]@{
-    BOSSAI_QWEN_MODEL=(Join-Path $TargetDir ('model\\' + $fileNames[0]))
-    BOSSAI_QWEN_PYTHON=(Join-Path $TargetDir 'venv\\Scripts\\python.exe')
+  $fileEntries = @($qwen.files)
+  if ($fileEntries.Count -ne 2) { throw 'Pinned Qwen Q4_K_M split file set is invalid.' }
+  foreach ($entry in $fileEntries) {
+    $name = [string]$entry.name
+    $sha = [string]$entry.sha256
+    if (-not $name -or -not $sha) { throw 'Pinned Qwen file metadata is incomplete.' }
+    $target = Join-Path $modelDir $name
+    if ($ModelSourceDir) {
+      $source = Join-Path ([System.IO.Path]::GetFullPath($ModelSourceDir)) $name
+      Verify-Hash $source $sha "Qwen model shard $name"
+      Copy-Item -LiteralPath $source -Destination $target
+      Verify-Hash $target $sha "Qwen copied model shard $name"
+    } else {
+      $encodedName = [Uri]::EscapeDataString($name)
+      $url = "https://huggingface.co/$([string]$qwen.repository)/resolve/$([string]$qwen.revision)/$encodedName?download=true"
+      $cached = Join-Path $downloadRoot $name
+      Download-Verified $url $cached $sha "Qwen model shard $name"
+      Copy-Item -LiteralPath $cached -Destination $target
+      Verify-Hash $target $sha "Qwen installed model shard $name"
+    }
   }
-}
-$runtimeManifest | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $InstallDir 'runtime.json') -Encoding UTF8
-Commit-Install $InstallDir $TargetDir
-Write-Output 'BOSSAI_DONE Qwen runtime installed from pinned official sources.'
+
+  $modelEntry = Join-Path $modelDir ([string]$fileEntries[0].name)
+  $previousPreference = $ErrorActionPreference
+  try {
+    $ErrorActionPreference = 'Continue'
+    $probe = (& $serverExe.FullName --version 2>&1 | Out-String)
+    $probeExitCode = $LASTEXITCODE
+  } finally { $ErrorActionPreference = $previousPreference }
+  if ($probeExitCode -ne 0 -or $probe -notmatch 'build 10516') { throw "Qwen llama.cpp probe failed: $probe" }
+
+  $llamaLicense = Join-Path $licensesDir 'llama.cpp-LICENSE.txt'
+  Invoke-WebRequest -Uri "https://raw.githubusercontent.com/ggml-org/llama.cpp/$([string]$llama.commit)/LICENSE" -OutFile $llamaLicense -UseBasicParsing
+  $qwenLicense = Join-Path $licensesDir 'Qwen-LICENSE.txt'
+  Invoke-WebRequest -Uri "https://huggingface.co/$([string]$qwen.repository)/resolve/$([string]$qwen.revision)/LICENSE?download=true" -OutFile $qwenLicense -UseBasicParsing
+  if (-not (Test-Path -LiteralPath $llamaLicense -PathType Leaf) -or -not (Test-Path -LiteralPath $qwenLicense -PathType Leaf)) { throw 'Qwen/llama.cpp license evidence download failed.' }
+
+  $gpuLayers = if ($Profile -eq 'gpu') { [int]$llama.defaultGpuLayers } else { 0 }
+  $runtimeManifest = [ordered]@{
+    schema = 'bossai.video-agent-installed-runtime.v2'
+    component = 'qwen2.5-7b-instruct'
+    installedAt = [DateTimeOffset]::UtcNow.ToString('o')
+    source = [ordered]@{ repository=[string]$qwen.repository; revision=[string]$qwen.revision; variant=[string]$qwen.variant }
+    inference = [ordered]@{ project=[string]$llama.project; release=[string]$llama.release; commit=[string]$llama.commit; backend='vulkan'; gpuLayers=$gpuLayers }
+    licenseEvidence = @('licenses/Qwen-LICENSE.txt','licenses/llama.cpp-LICENSE.txt')
+    files = @($fileEntries | ForEach-Object {
+      $path = Join-Path $modelDir ([string]$_.name)
+      [ordered]@{ name=[string]$_.name; bytes=(Get-Item -LiteralPath $path).Length; sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() }
+    })
+    env = [ordered]@{
+      BOSSAI_QWEN_MODEL=(Join-Path $TargetDir ('model\\' + [string]$fileEntries[0].name))
+      BOSSAI_QWEN_SERVER=(Join-Path $TargetDir ('llama.cpp\\' + $serverExe.Name))
+      BOSSAI_QWEN_GPU_LAYERS=[string]$gpuLayers
+    }
+  }
+  $runtimeManifest | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $InstallDir 'runtime.json') -Encoding UTF8
+  Commit-Install $InstallDir $TargetDir
+  Write-Output 'BOSSAI_DONE Qwen runtime installed from pinned Qwen + llama.cpp official sources.'
 } catch {
   if (Test-Path -LiteralPath $InstallDir) { Remove-Item -LiteralPath $InstallDir -Recurse -Force -ErrorAction SilentlyContinue }
   throw
