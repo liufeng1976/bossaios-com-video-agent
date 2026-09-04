@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -193,6 +195,22 @@ def main() -> int:
         "Customer terms, privacy notice, voice/avatar authorization notice, support contact and approved legal-release manifest must be included.")
 
     publishing_enabled = bool(manifest.get("publishingEnabled"))
+    # Bundled media is opt-in, but anything bundled must carry full provenance.
+    first_party_ok = False
+    first_party_detail = "First-party asset bundle verification did not run."
+    try:
+        first_party = subprocess.run(
+            [sys.executable, str(HERE / "verify-first-party-assets.py")],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
+        )
+        first_party_ok = first_party.returncode == 0
+        first_party_detail = (first_party.stdout or first_party.stderr or "").strip()[-2000:]
+    except Exception as exc:
+        first_party_detail = f"First-party asset verification failed to run: {exc}"
+    add("first-party-assets", first_party_ok,
+        "Any BossAI-bundled voice, avatar, media or music must declare its rights holder, licence and acquisition record and match its pinned SHA-256: "
+        + first_party_detail)
+
     add("publishing-uat", (not publishing_enabled) or manifest.get("realPublishingUatPassed") is True,
         "If publishing is enabled for customers, real-account UAT is mandatory before release.")
 

@@ -1843,8 +1843,16 @@ def _ensure_asset_dirs() -> None:
 
 
 def _resolve_bgm(file_name: str) -> Path:
-    """Resolve a background-music choice inside the customer asset directory."""
-    name = Path(str(file_name or "").strip()).name
+    """Resolve a background-music choice.
+
+    BossAI-bundled tracks are addressed by their manifest id; everything else
+    must resolve inside the customer's own asset directory.
+    """
+    requested = str(file_name or "").strip()
+    for item in _first_party_assets("bgm"):
+        if item["id"] == requested:
+            return Path(item["path"])
+    name = Path(requested).name
     if not name or not BGM_NAME_RE.fullmatch(name):
         raise HTTPException(400, "Invalid background-music selection.")
     _ensure_asset_dirs()
@@ -1947,6 +1955,87 @@ def transcription_job(job_id: str):
     return {"success": True, "data": job}
 
 
+FIRST_PARTY_SCHEMA = "bossai.video-agent-first-party-assets.v1"
+FIRST_PARTY_KINDS = {"voice": "voices", "avatar": "avatars", "media": "media", "bgm": "bgm"}
+
+
+def _first_party_root() -> Path:
+    explicit = os.environ.get("BOSSAI_VIDEO_RESOURCES_ROOT", "").strip().strip('"')
+    base = Path(explicit).expanduser().resolve() if explicit else HERE.parent
+    return (base / "first-party-assets").resolve()
+
+
+def _first_party_assets(kind: str) -> list[dict[str, Any]]:
+    """List BossAI-owned assets of one kind that are declared and present.
+
+    An entry is ignored unless it carries full provenance and its file exists,
+    so a half-filled manifest can never surface media to the customer. The
+    product ships an empty manifest by default.
+    """
+    root = _first_party_root()
+    manifest_path = root / "manifest.json"
+    if not manifest_path.is_file():
+        return []
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    if manifest.get("schema") != FIRST_PARTY_SCHEMA:
+        return []
+
+    required = ("id", "kind", "file", "displayName", "rightsHolder", "license", "acquisitionRecord", "sourceType")
+    items: list[dict[str, Any]] = []
+    for asset in manifest.get("assets") or []:
+        if not isinstance(asset, dict) or asset.get("kind") != kind:
+            continue
+        if any(not str(asset.get(field) or "").strip() for field in required):
+            continue
+        relative = str(asset.get("file") or "")
+        path = (root / relative).resolve()
+        try:
+            path.relative_to(root)
+        except ValueError:
+            continue
+        if not path.is_file():
+            continue
+        items.append(
+            {
+                "id": str(asset["id"]),
+                "displayName": str(asset["displayName"]),
+                "sizeBytes": path.stat().st_size,
+                "builtIn": True,
+                "rightsHolder": str(asset["rightsHolder"]),
+                "license": str(asset["license"]),
+                "sourceType": str(asset["sourceType"]),
+                "path": str(path),
+            }
+        )
+    return items
+
+
+def _first_party_path(kind: str, asset_id: str) -> Path:
+    for item in _first_party_assets(kind):
+        if item["id"] == asset_id:
+            return Path(item["path"])
+    raise HTTPException(404, "BossAI first-party asset not found.")
+
+
+@app.get("/api/commercial/first-party-assets")
+def commercial_first_party_assets():
+    """Report what BossAI itself bundles, and on what redistribution basis."""
+    return {
+        "success": True,
+        "data": {
+            "schema": "bossai.video-agent-first-party-asset-listing.v1",
+            "voices": [{k: v for k, v in item.items() if k != "path"} for item in _first_party_assets("voice")],
+            "avatars": [{k: v for k, v in item.items() if k != "path"} for item in _first_party_assets("avatar")],
+            "media": [{k: v for k, v in item.items() if k != "path"} for item in _first_party_assets("media")],
+            "bgm": [{k: v for k, v in item.items() if k != "path"} for item in _first_party_assets("bgm")],
+            "policy": "BossAI bundles only assets it owns or holds documented redistribution rights for. Customer-supplied assets are always used as-is and never replaced by these.",
+        },
+    }
+
+
 @app.get("/api/commercial/video/assets")
 def commercial_video_assets():
     """Expose the editing assets that exist on this machine.
@@ -1961,7 +2050,11 @@ def commercial_video_assets():
         "data": {
             "schema": "bossai.video-agent-video-assets.v1",
             "composer": video_composer.inspect_setup(),
-            "bgm": video_composer.list_bgm(_bgm_dir()),
+            "bgm": [
+                *[{"fileName": item["id"], "displayName": item["displayName"], "sizeBytes": item["sizeBytes"], "source": "bossai-first-party", "builtIn": True}
+                  for item in _first_party_assets("bgm")],
+                *video_composer.list_bgm(_bgm_dir()),
+            ],
             "bgmDirectory": str(_bgm_dir()),
             "fonts": video_composer.list_subtitle_fonts(_asset_font_dir()),
             "defaultFontFile": default.name if default else "",
