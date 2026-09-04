@@ -132,39 +132,73 @@ export async function listVoices() {
   return requestJson('/api/voices/?page=1&pageSize=100')
 }
 
-export async function uploadVoice(file, displayName = '') {
+export async function renameVoice(voiceId, displayName) {
+  return requestJson(`/api/voices/${encodeURIComponent(voiceId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ displayName }),
+  })
+}
+
+export async function deleteVoice(voiceId) {
+  return requestJson(`/api/voices/${encodeURIComponent(voiceId)}`, { method: 'DELETE' })
+}
+
+export function voiceFileUrl(voiceId) {
+  return apiUrl(`/api/voices/${encodeURIComponent(voiceId)}/file`)
+}
+
+export async function listAvatars() {
+  return requestJson('/api/commercial/avatars/?page=1&pageSize=100')
+}
+
+export async function renameAvatar(avatarId, displayName) {
+  return requestJson(`/api/commercial/avatars/${encodeURIComponent(avatarId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ displayName }),
+  })
+}
+
+export async function deleteAvatar(avatarId) {
+  return requestJson(`/api/commercial/avatars/${encodeURIComponent(avatarId)}`, { method: 'DELETE' })
+}
+
+export function avatarFileUrl(avatarId) {
+  return apiUrl(`/api/commercial/avatars/${encodeURIComponent(avatarId)}/file`)
+}
+
+/** Derive a publishing title and hashtags from the finished script. */
+export async function generateTitle(payload) {
+  return requestJson('/api/llm/generate-title', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+/** POST one file as multipart/form-data and unwrap the BossAI response envelope. */
+export async function uploadMultipart(path, file, fields = {}) {
   const body = new FormData()
   body.append('file', file)
-  if (String(displayName || '').trim()) body.append('displayName', String(displayName).trim())
-  const response = await fetch(apiUrl('/api/voices/upload'), {
-    method: 'POST',
-    credentials: 'omit',
-    body,
-  })
+  for (const [key, value] of Object.entries(fields)) {
+    if (String(value ?? '').trim()) body.append(key, String(value).trim())
+  }
+  const response = await fetch(apiUrl(path), { method: 'POST', credentials: 'omit', body })
   const payload = await response.json().catch(() => ({}))
   if (!response.ok || payload?.success === false) {
     throw new Error(payload?.message || payload?.detail || response.statusText || `HTTP ${response.status}`)
   }
   return payload?.data ?? payload
+}
+
+export async function uploadVoice(file, displayName = '') {
+  return uploadMultipart('/api/voices/upload', file, { displayName })
 }
 
 export async function getDigitalHumanSetup() {
   return requestJson('/api/commercial/digital-human/setup')
 }
 
-export async function uploadAvatarVideo(file) {
-  const body = new FormData()
-  body.append('file', file)
-  const response = await fetch(apiUrl('/api/commercial/assets/avatar-video'), {
-    method: 'POST',
-    credentials: 'omit',
-    body,
-  })
-  const payload = await response.json().catch(() => ({}))
-  if (!response.ok || payload?.success === false) {
-    throw new Error(payload?.message || payload?.detail || response.statusText || `HTTP ${response.status}`)
-  }
-  return payload?.data ?? payload
+export async function uploadAvatarVideo(file, displayName = '') {
+  return uploadMultipart('/api/commercial/assets/avatar-video', file, { displayName })
 }
 
 export async function renderCommercialDigitalHuman(payload, onProgress) {
@@ -204,22 +238,25 @@ export async function generateTts(payload, onProgress) {
   return pollJob(`/api/tts/jobs/${encodeURIComponent(first.jobId)}`, { onProgress })
 }
 
-export async function renderDigitalHuman(payload, onProgress) {
-  const first = await requestJson('/api/digital-human/render', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  })
-  if (first?.fileUrl) return first
-  if (!first?.jobId) throw new Error('数字人服务未返回任务 ID')
-  return pollJob(`/api/digital-human/jobs/${encodeURIComponent(first.jobId)}`, { onProgress })
+/** Background music, installed fonts and composer readiness for the editor. */
+export async function getVideoAssets() {
+  return requestJson('/api/commercial/video/assets')
 }
 
-export async function renderVideo(payload, onProgress) {
-  const first = await requestJson('/api/video/render', {
+export async function uploadBgm(file) {
+  return uploadMultipart('/api/commercial/video/bgm', file)
+}
+
+export async function deleteBgm(fileName) {
+  return requestJson(`/api/commercial/video/bgm/${encodeURIComponent(fileName)}`, { method: 'DELETE' })
+}
+
+/** Compose the final cut; resolves once FFmpeg has finished the render. */
+export async function renderCommercialFinalVideo(payload, onProgress) {
+  const first = await requestJson('/api/commercial/video/render', {
     method: 'POST',
     body: JSON.stringify(payload),
   })
-  if (first?.fileUrl) return first
-  if (!first?.jobId) throw new Error('成片服务未返回任务 ID')
-  return pollJob(`/api/video/jobs/${encodeURIComponent(first.jobId)}`, { onProgress })
+  if (!first?.jobId) throw new Error('成片合成服务未返回任务 ID')
+  return pollJob(`/api/commercial/video/jobs/${encodeURIComponent(first.jobId)}`, { onProgress })
 }

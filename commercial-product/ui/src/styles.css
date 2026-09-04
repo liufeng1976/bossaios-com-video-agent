@@ -95,8 +95,85 @@ input, textarea, select { width: 100%; border: 1px solid #d8d8dc; background: #f
 .feature-lock { margin: -7px 0 14px; color: #8a691c; font-size: 12px; }
 .error-banner, .message-banner { margin: 0; padding: 13px 15px; border-radius: 10px; font-size: 13px; }.error-banner { border: 1px solid #e1bcbc; background: #fff9f9; color: #8a2f2f; }.message-banner { border: 1px solid #c7d7c8; background: #fbfffb; color: #315e37; }
 
+/* Home: readiness summary plus feature entry cards. */
+.home-layout { display: grid; gap: 18px; }
+.home-layout .hero-card { grid-column: auto; padding: 30px; }
+.section-title { margin: 10px 0 -4px; font-size: 17px; }
+.readiness-card { background: #fff; border: 1px solid #e1e1e5; border-radius: 14px; padding: 22px; }
+.readiness-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.readiness-list li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 13px 14px; border: 1px solid #ededf0; border-radius: 10px; }
+.readiness-list strong { display: block; font-size: 13px; margin-bottom: 4px; }
+.readiness-list span:not(.readiness-dot):not(.runtime-state) { display: block; color: #77777c; font-size: 12px; line-height: 1.55; }
+.readiness-dot { width: 10px; height: 10px; border-radius: 50%; background: #d3d3d8; }
+.readiness-dot.ok { background: #218739; }
+.readiness-dot.todo { background: #c9962a; }
+.readiness-dot.optional { background: #c5c5cb; }
+
+.feature-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.feature-card { display: flex; flex-direction: column; gap: 10px; padding: 22px; background: #fff; border: 1px solid #e1e1e5; border-radius: 14px; }
+.feature-card h3 { margin: 0; font-size: 17px; }
+.feature-card p { margin: 0 0 auto; color: #6f6f74; font-size: 13px; line-height: 1.7; }
+.feature-card button { align-self: flex-start; margin-top: 8px; border-radius: 9px; padding: 10px 15px; border: 1px solid #d6d6da; background: #fff; font-weight: 650; }
+.feature-card.active { border-color: #cfcfd5; box-shadow: 0 1px 3px rgba(0, 0, 0, .05); }
+.feature-card.disabled { background: #fafafb; }
+.feature-card.disabled h3, .feature-card.disabled p { color: #86868b; }
+.badge { align-self: flex-start; padding: 4px 9px; border-radius: 999px; background: #1d1d1f; color: #fff; font-size: 11px; font-weight: 700; }
+.badge.muted-badge { background: #eaeaee; color: #77777c; }
+
+/* Settings: a section rail beside one visible panel. */
+.settings-layout { display: grid; grid-template-columns: 232px minmax(0, 1fr); gap: 18px; align-items: start; }
+.settings-nav { display: grid; gap: 6px; position: sticky; top: 30px; }
+.settings-nav button { display: grid; gap: 4px; justify-items: start; padding: 12px 14px; border: 1px solid #e4e4e8; border-radius: 11px; background: #fff; text-align: left; }
+.settings-nav button.active { border-color: #1d1d1f; box-shadow: 0 0 0 1px #1d1d1f inset; }
+.settings-nav strong { font-size: 13px; }
+.settings-body > article { grid-column: auto; }
+
+/* Step 04 editing controls. */
+.edit-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.edit-block { padding: 16px; border: 1px solid #ededf0; border-radius: 11px; background: #fafafa; }
+.edit-block h3 { margin: 0 0 12px; font-size: 14px; }
+.edit-block .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.edit-block .policy-card { background: #fff; }
+.edit-block input[type="color"] { height: 38px; padding: 4px; }
+.edit-block input[type="range"] { padding: 0; }
+.edit-block .hint { display: block; margin-top: 6px; line-height: 1.6; }
+.render-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 12px; color: #6d6d72; }
+.render-summary span { padding: 4px 9px; border-radius: 999px; border: 1px solid #dedee2; }
+.render-summary span.on { color: #1f6f34; border-color: #bcd8c3; background: #f7fbf8; }
+.render-summary span.off { color: #9a9aa0; text-decoration: line-through; }
+
+/* Asset library: voices and avatar clips. */
+.assets-layout { display: grid; gap: 18px; }
+.assets-layout .hero-card { grid-column: auto; padding: 26px 30px; }
+.assets-tabs { display: flex; gap: 8px; }
+.assets-tabs button { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border: 1px solid #d9d9dd; border-radius: 999px; background: #fff; color: #5d5d62; font-weight: 650; }
+.assets-tabs button.active { background: #1d1d1f; color: #fff; border-color: #1d1d1f; }
+.assets-tabs .count { padding: 1px 8px; border-radius: 999px; background: rgba(0, 0, 0, .07); font-size: 11px; }
+.assets-tabs button.active .count { background: rgba(255, 255, 255, .22); }
+
+.asset-list { display: grid; gap: 8px; }
+.asset-row { display: grid; grid-template-columns: minmax(0, 1fr) 260px auto; gap: 16px; align-items: center; padding: 13px 14px; border: 1px solid #ededf0; border-radius: 10px; }
+.asset-identity strong { display: block; font-size: 13px; margin-bottom: 4px; }
+.asset-identity .mono { display: block; color: #9a9aa0; font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.asset-identity input { font-size: 13px; }
+.asset-audio { width: 100%; height: 36px; }
+.asset-actions { display: flex; gap: 8px; }
+.asset-actions button { padding: 8px 12px; font-size: 12px; }
+button.secondary.danger { color: #8a2f2f; border-color: #e1bcbc; }
+button.secondary.danger:hover:not(:disabled) { background: #fff5f5; }
+
+.avatar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+.avatar-card { display: grid; gap: 10px; padding: 12px; border: 1px solid #ededf0; border-radius: 12px; }
+.avatar-thumb { width: 100%; aspect-ratio: 9 / 16; max-height: 320px; border-radius: 9px; background: #111; object-fit: cover; }
+
+.confirm-bar { position: sticky; bottom: 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 18px; border: 1px solid #e1bcbc; border-radius: 12px; background: #fff9f9; box-shadow: 0 6px 20px rgba(0, 0, 0, .08); }
+.confirm-bar span { flex: 1 1 240px; color: #764545; font-size: 13px; }
+
 @media (max-width: 1240px) {
   body { min-width: 980px; }
   .app-shell { grid-template-columns: 208px 1fr; }
   .content { padding-inline: 24px; }
+  .feature-cards, .edit-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .settings-layout { grid-template-columns: 200px minmax(0, 1fr); }
+  .asset-row { grid-template-columns: minmax(0, 1fr) 200px auto; }
 }

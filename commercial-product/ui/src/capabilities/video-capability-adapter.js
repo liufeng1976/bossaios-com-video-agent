@@ -2,8 +2,10 @@ import {
   finalizeCommercialVideo,
   generateTts,
   getPublishStatus,
+  getVideoAssets,
   prepareCommercialPublish,
   renderCommercialDigitalHuman,
+  renderCommercialFinalVideo,
   rewriteScript,
 } from '../api.js'
 
@@ -27,8 +29,18 @@ export class BossAIVideoCapabilityAdapter {
     return renderCommercialDigitalHuman(payload, onProgress)
   }
 
-  async renderVideo(payload) {
+  /** Lossless passthrough used when no edit is enabled. */
+  async finalize(payload) {
     return finalizeCommercialVideo(payload)
+  }
+
+  /** Full composition: burned-in subtitles, banner title and mixed music. */
+  async renderVideo(payload, onProgress) {
+    return renderCommercialFinalVideo(payload, onProgress)
+  }
+
+  async editingAssets() {
+    return getVideoAssets()
   }
 
   async cover(_payload) {

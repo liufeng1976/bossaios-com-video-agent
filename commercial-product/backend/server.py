@@ -14,7 +14,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import FastAPI, File, Header, HTTPException, Query, Request, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, ValidationError
@@ -27,6 +27,7 @@ import bossai_os_bridge
 import cosyvoice_adapter
 import musetalk_adapter
 import qwen_adapter
+import video_composer
 
 PRODUCT_ID = "bossai-video-agent"
 PRODUCT_VERSION = "0.1.0"
@@ -54,13 +55,14 @@ app = FastAPI(title=PRODUCT_NAME, version=PRODUCT_VERSION, docs_url=None, redoc_
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
     allow_credentials=False,
 )
 
 _TTS_JOBS: dict[str, dict[str, Any]] = {}
 _DH_JOBS: dict[str, dict[str, Any]] = {}
+_VIDEO_JOBS: dict[str, dict[str, Any]] = {}
 _RUNTIME_JOBS: dict[str, dict[str, Any]] = {}
 _AGENT_EXECUTIONS: dict[str, dict[str, Any]] = {}
 _JOB_LOCK = threading.Lock()
@@ -87,6 +89,16 @@ class TtsBody(BaseModel):
     language: str = Field(default="zh", max_length=32)
 
 
+class TitleBody(BaseModel):
+    scriptText: str = Field(..., min_length=1, max_length=20000)
+    publishPlatform: Literal["douyin", "channels", "xiaohongshu", "kuaishou"] = "douyin"
+    topicCount: int = Field(default=5, ge=1, le=10)
+
+
+class RenameBody(BaseModel):
+    displayName: str = Field(..., min_length=1, max_length=100)
+
+
 class DigitalHumanBody(BaseModel):
     avatarId: str = Field(..., min_length=32, max_length=32)
     audioUrl: str = Field(..., min_length=1, max_length=4096)
@@ -96,6 +108,42 @@ class DigitalHumanBody(BaseModel):
 class FinalVideoBody(BaseModel):
     sourceUrl: str = Field(..., min_length=1, max_length=4096)
     projectName: str | None = Field(default=None, max_length=120)
+
+
+HEX_COLOR = r"^#?[0-9a-fA-F]{6}$"
+CaptionPosition = Literal["top", "center", "bottom"]
+
+
+class VideoRenderBody(BaseModel):
+    """Editing options for the final customer video.
+
+    Every field maps to something FFmpeg actually burns in; the product never
+    reports an edit it did not perform.
+    """
+
+    sourceUrl: str = Field(..., min_length=1, max_length=4096)
+    projectName: str | None = Field(default=None, max_length=120)
+    scriptText: str = Field(default="", max_length=20000)
+
+    subtitleEnabled: bool = True
+    subtitleFontFile: str = Field(default="", max_length=255)
+    subtitlePosition: CaptionPosition = "bottom"
+    subtitleFontSize: int = Field(default=60, ge=24, le=120)
+    subtitleColor: str = Field(default="#ffffff", pattern=HEX_COLOR)
+    subtitleStrokeColor: str = Field(default="#000000", pattern=HEX_COLOR)
+    subtitleStrokeWidth: float = Field(default=1.5, ge=0, le=8)
+
+    bgmEnabled: bool = False
+    bgmFile: str = Field(default="", max_length=255)
+    bgmVolume: int = Field(default=13, ge=0, le=100)
+    voiceMixVolume: int = Field(default=100, ge=0, le=150)
+
+    videoTitleEnabled: bool = False
+    videoTitleText: str = Field(default="", max_length=200)
+    videoTitlePosition: CaptionPosition = "top"
+    videoTitleFontSize: int = Field(default=60, ge=24, le=120)
+    videoTitleColor: str = Field(default="#ffffff", pattern=HEX_COLOR)
+    videoTitleStrokeColor: str = Field(default="#000000", pattern=HEX_COLOR)
 
 
 class PublishPrepareBody(BaseModel):
@@ -1364,6 +1412,17 @@ def llm_rewrite(body: RewriteBody):
     return {"success": True, "data": {"rewriteText": rewritten, "engine": qwen_adapter.ENGINE_ID}}
 
 
+@app.post("/api/llm/generate-title")
+def llm_generate_title(body: TitleBody):
+    """Derive a publishing title and hashtags from the finished talking script."""
+    require_execution(FEATURE_REWRITE)
+    try:
+        result = qwen_adapter.generate_title(body.scriptText, body.publishPlatform, body.topicCount)
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(503, str(exc)) from exc
+    return {"success": True, "data": {**result, "engine": qwen_adapter.ENGINE_ID}}
+
+
 @app.get("/api/voices/")
 def list_voices(page: int = Query(default=1, ge=1), pageSize: int = Query(default=100, ge=1, le=500)):
     items: list[dict[str, Any]] = []
@@ -1380,7 +1439,7 @@ def list_voices(page: int = Query(default=1, ge=1), pageSize: int = Query(defaul
 
 
 @app.post("/api/voices/upload")
-async def upload_voice(file: UploadFile = File(...), displayName: str = ""):
+async def upload_voice(file: UploadFile = File(...), displayName: str = Form(default="")):
     suffix = Path(file.filename or "voice.wav").suffix.lower()
     if suffix != ".wav":
         raise HTTPException(400, "Reference voice must be a WAV file.")
@@ -1408,6 +1467,95 @@ async def upload_voice(file: UploadFile = File(...), displayName: str = ""):
     meta = {"id": voice_id, "displayName": str(displayName or Path(file.filename or "voice").stem)[:100], "sizeBytes": size}
     _voice_meta_path(voice_id).write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
     return {"success": True, "data": meta}
+
+
+@app.get("/api/voices/{voice_id}/file")
+def voice_file(voice_id: str):
+    """Serve a stored reference voice so the customer can audition it."""
+    path = _resolve_voice(voice_id)
+    return FileResponse(path, media_type="audio/wav", filename=f"bossai-voice-{voice_id}.wav")
+
+
+@app.patch("/api/voices/{voice_id}")
+def rename_voice(voice_id: str, body: RenameBody):
+    _resolve_voice(voice_id)
+    meta_path = _voice_meta_path(voice_id)
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        meta = {"id": voice_id}
+    meta["displayName"] = body.displayName.strip()[:100]
+    meta_path.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+    return {"success": True, "data": {"id": voice_id, "displayName": meta["displayName"]}}
+
+
+@app.delete("/api/voices/{voice_id}")
+def delete_voice(voice_id: str):
+    path = _resolve_voice(voice_id)
+    path.unlink(missing_ok=True)
+    _voice_meta_path(voice_id).unlink(missing_ok=True)
+    return {"success": True, "data": {"id": voice_id, "removed": True}}
+
+
+def _avatar_meta_path(avatar_id: str) -> Path:
+    return _dir("avatars") / f"{avatar_id}.json"
+
+
+def _read_avatar_meta(avatar_id: str) -> dict[str, Any]:
+    try:
+        meta = json.loads(_avatar_meta_path(avatar_id).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return meta if isinstance(meta, dict) else {}
+
+
+def _avatar_summary(path: Path) -> dict[str, Any]:
+    avatar_id = path.stem
+    meta = _read_avatar_meta(avatar_id)
+    return {
+        "id": avatar_id,
+        "displayName": str(meta.get("displayName") or "").strip() or "授权人物视频",
+        "sizeBytes": path.stat().st_size,
+        "fileUrl": f"/api/commercial/avatars/{avatar_id}/file",
+    }
+
+
+@app.get("/api/commercial/avatars/")
+def list_avatars(page: int = Query(default=1, ge=1), pageSize: int = Query(default=100, ge=1, le=500)):
+    """List the authorized avatar clips stored on this machine."""
+    candidates = [
+        path
+        for path in _dir("avatars").iterdir()
+        if path.is_file() and path.suffix.lower() in ALLOWED_AVATAR_SUFFIXES and AVATAR_ID_RE.fullmatch(path.stem)
+    ]
+    candidates.sort(key=lambda path: path.stat().st_mtime, reverse=True)
+    items = [_avatar_summary(path) for path in candidates]
+    start = (page - 1) * pageSize
+    return {"success": True, "data": {"items": items[start : start + pageSize], "total": len(items)}}
+
+
+@app.get("/api/commercial/avatars/{avatar_id}/file")
+def avatar_file(avatar_id: str):
+    path = _avatar_path(avatar_id)
+    media_types = {".mp4": "video/mp4", ".mov": "video/quicktime", ".webm": "video/webm", ".mkv": "video/x-matroska"}
+    return FileResponse(path, media_type=media_types.get(path.suffix.lower(), "video/mp4"), filename=path.name)
+
+
+@app.patch("/api/commercial/avatars/{avatar_id}")
+def rename_avatar(avatar_id: str, body: RenameBody):
+    path = _avatar_path(avatar_id)
+    meta = _read_avatar_meta(avatar_id)
+    meta.update({"id": avatar_id, "displayName": body.displayName.strip()[:100], "suffix": path.suffix.lower()})
+    _avatar_meta_path(avatar_id).write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+    return {"success": True, "data": {"id": avatar_id, "displayName": meta["displayName"]}}
+
+
+@app.delete("/api/commercial/avatars/{avatar_id}")
+def delete_avatar(avatar_id: str):
+    path = _avatar_path(avatar_id)
+    path.unlink(missing_ok=True)
+    _avatar_meta_path(avatar_id).unlink(missing_ok=True)
+    return {"success": True, "data": {"id": avatar_id, "removed": True}}
 
 
 @app.post("/api/tts/generate")
@@ -1469,7 +1617,7 @@ def tts_file(output_id: str):
 
 
 @app.post("/api/commercial/assets/avatar-video")
-async def upload_avatar(file: UploadFile = File(...)):
+async def upload_avatar(file: UploadFile = File(...), displayName: str = Form(default="")):
     suffix = Path(file.filename or "avatar.mp4").suffix.lower()
     if suffix not in ALLOWED_AVATAR_SUFFIXES:
         raise HTTPException(400, "Avatar video must be MP4, MOV, WEBM or MKV.")
@@ -1494,9 +1642,20 @@ async def upload_avatar(file: UploadFile = File(...)):
     if size < 1024:
         target.unlink(missing_ok=True)
         raise HTTPException(400, "Avatar video is empty or invalid.")
+    label = str(displayName or Path(file.filename or "avatar").stem).strip()[:100] or "授权人物视频"
+    _avatar_meta_path(avatar_id).write_text(
+        json.dumps({"id": avatar_id, "displayName": label, "sizeBytes": size, "suffix": suffix}, ensure_ascii=False),
+        encoding="utf-8",
+    )
     return {
         "success": True,
-        "data": {"schema": "bossai.video-agent-avatar.v1", "avatarId": avatar_id, "sizeBytes": size},
+        "data": {
+            "schema": "bossai.video-agent-avatar.v1",
+            "avatarId": avatar_id,
+            "displayName": label,
+            "sizeBytes": size,
+            "fileUrl": f"/api/commercial/avatars/{avatar_id}/file",
+        },
     }
 
 
@@ -1605,6 +1764,208 @@ def finalize_video(body: FinalVideoBody):
             "sourceType": "bossai-video-agent-digital-human",
         },
     }
+
+
+BGM_NAME_RE = re.compile(r"^[^\\/:*?\"<>|\x00-\x1f]{1,150}$")
+
+
+def _bgm_dir() -> Path:
+    return _dir("assets") / "bgm"
+
+
+def _asset_font_dir() -> Path:
+    return _dir("assets") / "fonts"
+
+
+def _ensure_asset_dirs() -> None:
+    _bgm_dir().mkdir(parents=True, exist_ok=True)
+    _asset_font_dir().mkdir(parents=True, exist_ok=True)
+
+
+def _resolve_bgm(file_name: str) -> Path:
+    """Resolve a background-music choice inside the customer asset directory."""
+    name = Path(str(file_name or "").strip()).name
+    if not name or not BGM_NAME_RE.fullmatch(name):
+        raise HTTPException(400, "Invalid background-music selection.")
+    _ensure_asset_dirs()
+    path = (_bgm_dir() / name).resolve()
+    try:
+        path.relative_to(_bgm_dir().resolve())
+    except ValueError as exc:
+        raise HTTPException(403, "Background music must live inside the BossAI asset directory.") from exc
+    if not path.is_file():
+        raise HTTPException(404, "Selected background music is no longer available.")
+    return path
+
+
+@app.get("/api/commercial/video/assets")
+def commercial_video_assets():
+    """Expose the editing assets that exist on this machine.
+
+    The product bundles no music and no fonts; this lists only what the customer
+    supplied themselves plus fonts already installed on the system.
+    """
+    _ensure_asset_dirs()
+    default = video_composer.default_font(_asset_font_dir())
+    return {
+        "success": True,
+        "data": {
+            "schema": "bossai.video-agent-video-assets.v1",
+            "composer": video_composer.inspect_setup(),
+            "bgm": video_composer.list_bgm(_bgm_dir()),
+            "bgmDirectory": str(_bgm_dir()),
+            "fonts": video_composer.list_subtitle_fonts(_asset_font_dir()),
+            "defaultFontFile": default.name if default else "",
+            "mediaPolicy": (
+                "BossAI ships no background music or font files; only customer-provided "
+                "and already-installed local assets are used."
+            ),
+        },
+    }
+
+
+@app.post("/api/commercial/video/bgm")
+async def upload_commercial_bgm(file: UploadFile = File(...)):
+    """Store a customer-provided background-music track locally."""
+    original = Path(file.filename or "bgm.mp3").name
+    suffix = Path(original).suffix.lower()
+    if suffix not in video_composer.AUDIO_SUFFIXES:
+        raise HTTPException(400, "Background music must be MP3, WAV, M4A, AAC, FLAC or OGG.")
+    _ensure_asset_dirs()
+    stem = _safe_project_name(Path(original).stem)
+    target = (_bgm_dir() / f"{stem}{suffix}").resolve()
+    counter = 1
+    while target.exists():
+        target = (_bgm_dir() / f"{stem}-{counter}{suffix}").resolve()
+        counter += 1
+    size = 0
+    try:
+        with target.open("wb") as handle:
+            while True:
+                chunk = await file.read(4 * 1024 * 1024)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > video_composer.MAX_BGM_BYTES:
+                    raise HTTPException(413, "Background music exceeds the 64 MiB limit.")
+                handle.write(chunk)
+    except Exception:
+        target.unlink(missing_ok=True)
+        raise
+    finally:
+        await file.close()
+    if size < 1024:
+        target.unlink(missing_ok=True)
+        raise HTTPException(400, "Background music file is empty or invalid.")
+    return {
+        "success": True,
+        "data": {
+            "fileName": target.name,
+            "displayName": target.stem,
+            "sizeBytes": size,
+            "source": "customer-provided",
+        },
+    }
+
+
+@app.delete("/api/commercial/video/bgm/{file_name}")
+def delete_commercial_bgm(file_name: str):
+    path = _resolve_bgm(file_name)
+    path.unlink(missing_ok=True)
+    return {"success": True, "data": {"fileName": path.name, "removed": True}}
+
+
+@app.post("/api/commercial/video/render")
+def render_final_video(body: VideoRenderBody):
+    """Compose the deliverable with subtitles, banner title and background music."""
+    source = _digital_human_url_path(body.sourceUrl)
+    setup = video_composer.inspect_setup()
+    if not setup.get("ready"):
+        raise HTTPException(
+            503, "Local video composition runtime is not ready: " + ", ".join(setup.get("missing") or [])
+        )
+
+    bgm_path = _resolve_bgm(body.bgmFile) if body.bgmEnabled and body.bgmFile else None
+    final_video_id = uuid.uuid4().hex
+    project_name = _safe_project_name(body.projectName)
+    output = (_dir("final-videos") / f"{final_video_id}.mp4").resolve()
+    work_dir = (_dir("render-work") / final_video_id).resolve()
+
+    subtitle = video_composer.SubtitleStyle(
+        enabled=bool(body.subtitleEnabled and body.scriptText.strip()),
+        font_file=body.subtitleFontFile,
+        position=body.subtitlePosition,
+        font_size=body.subtitleFontSize,
+        color=body.subtitleColor,
+        stroke_color=body.subtitleStrokeColor,
+        stroke_width=body.subtitleStrokeWidth,
+    )
+    title = video_composer.TitleStyle(
+        enabled=bool(body.videoTitleEnabled and body.videoTitleText.strip()),
+        text=body.videoTitleText,
+        font_file=body.subtitleFontFile,
+        position=body.videoTitlePosition,
+        font_size=body.videoTitleFontSize,
+        color=body.videoTitleColor,
+        stroke_color=body.videoTitleStrokeColor,
+    )
+    audio = video_composer.AudioMix(
+        bgm_path=bgm_path,
+        bgm_volume=body.bgmVolume,
+        voice_volume=body.voiceMixVolume,
+    )
+
+    job_id = uuid.uuid4().hex
+    _set_job(_VIDEO_JOBS, job_id, id=job_id, status="queued", progress=0, message="BossAI final video queued")
+
+    def worker() -> None:
+        _set_job(_VIDEO_JOBS, job_id, status="running", progress=5, message="Preparing final video")
+        try:
+            summary = video_composer.compose(
+                source_video=source,
+                output_path=output,
+                work_dir=work_dir,
+                script_text=body.scriptText,
+                subtitle=subtitle,
+                title=title,
+                audio=audio,
+                asset_font_dir=_asset_font_dir(),
+                on_progress=lambda percent, note: _set_job(
+                    _VIDEO_JOBS, job_id, status="running", progress=max(5, percent), message=note
+                ),
+            )
+            _set_job(
+                _VIDEO_JOBS,
+                job_id,
+                status="done",
+                progress=100,
+                message="BossAI final video completed",
+                finalVideoId=final_video_id,
+                projectName=project_name,
+                fileUrl=f"/api/commercial/video/final/{final_video_id}/file",
+                downloadName=f"{project_name}.mp4",
+                sizeBytes=output.stat().st_size,
+                sourceType="bossai-video-agent-composed",
+                **summary,
+            )
+        except Exception as exc:
+            output.unlink(missing_ok=True)
+            _set_job(_VIDEO_JOBS, job_id, status="failed", progress=100, message=str(exc))
+        finally:
+            shutil.rmtree(work_dir, ignore_errors=True)
+
+    threading.Thread(target=worker, daemon=True, name=f"bossai-render-{job_id[:8]}").start()
+    return {"success": True, "data": {"jobId": job_id, "status": "queued", "finalVideoId": final_video_id}}
+
+
+@app.get("/api/commercial/video/jobs/{job_id}")
+def final_video_job(job_id: str):
+    if not JOB_ID_RE.fullmatch(job_id):
+        raise HTTPException(404, "BossAI final video job not found.")
+    job = _get_job(_VIDEO_JOBS, job_id)
+    if job is None:
+        raise HTTPException(404, "BossAI final video job not found.")
+    return {"success": True, "data": job}
 
 
 @app.get("/api/commercial/video/final/{final_video_id}/file")
