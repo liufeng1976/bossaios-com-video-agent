@@ -21,9 +21,9 @@ Use **GitHub Releases** for official Windows installers, release notes and SHA-2
 
 | Plan | 中文 | English |
 | --- | --- | --- |
-| **Free Personal** | 个人/非商业永久免费；本地核心能力无需 BossAI 账号或商业授权 | Always free for personal/non-commercial use; local core features require no BossAI account or commercial entitlement |
-| **Personal Pro** | 注册 BossAI 账号并订阅；长期更高额度、跨设备和高级能力 | Registered subscription with sustained higher allowance, cross-device use and advanced capabilities |
-| **Business** | 任何企业、组织、客户交付、收费制作或其他商业用途必须取得商业授权 | Required for company, organization, client-delivery, paid-production or other commercial use |
+| **Free Personal** | 个人/非商业永久免费；安装所需本地运行时后，本地核心能力无需 BossAI 账号、BossAI Points 或云端模型 | Always free for personal/non-commercial use; after required local runtimes are installed, local core features require no BossAI account, BossAI Points, or cloud model |
+| **Personal Pro** | 注册 BossAI 账号并订阅；在本地核心能力之上提供更高额度、跨设备和可选云端增强 | Registered subscription adding higher allowance, cross-device use and optional cloud enhancements on top of the local core |
+| **Business** | 任何企业、组织、客户交付、收费制作或其他商业用途必须取得商业授权；本地与云端能力均受商业治理 | Required for company, organization, client-delivery, paid-production or other commercial use; both local and cloud capabilities remain commercially governed |
 
 Account, License, Subscription, BossAI Points, Quota, Device Binding and Entitlement are owned by the existing **BossAI OS + BossAI Headquarters Commerce** authority. BossAI Agent does not create a second billing or licensing ledger.
 
@@ -63,18 +63,54 @@ The one-time Pairing ID / 9-digit pairing-code flow is retained only as an advan
 
 一次性 Pairing ID / 9 位配对码仅保留为高级恢复入口，不是 Free Personal 默认首启流程。
 
+## Local-first execution / 本地优先执行
+
+**Local execution is the default product path. Cloud models are optional enhancements, not a dependency of the Free Personal core.** After the required runtimes/models have been installed, the core workflow runs on the customer device:
+
+- **Qwen** — local script generation and rewrite through the packaged local runtime.
+- **CosyVoice2** — local voice generation using customer-authorized or BossAI-owned reference voices.
+- **MuseTalk** — local talking-avatar generation using authorized avatar media.
+- **Whisper** — optional local transcription.
+- **FFmpeg** — local subtitles, audio mixing, cover/final-video composition and export.
+
+Core local operations must **never silently fall back to a cloud model**. A cloud capability is used only after the user explicitly chooses BossAI Gateway or another approved cloud path. Losing access to Headquarters services must fail closed for Pro/Business/cloud entitlement while preserving eligible Free Personal local use; commercial use is never inferred from a local fallback.
+
+**本地执行是产品默认主路径。云端模型只是可选增强层，不是 Free Personal 核心能力的依赖。** 所需 runtime / 模型完成安装后，核心工作流在客户本机执行：
+
+- **Qwen**：本地文案生成与改写。
+- **CosyVoice2**：使用客户已授权或 BossAI 自有参考声音进行本地配音。
+- **MuseTalk**：使用已授权人物素材进行本地数字人口播合成。
+- **Whisper**：可选的本地转写。
+- **FFmpeg**：本地字幕、混音、封面/成片合成和导出。
+
+本地核心能力**禁止静默回退到云端模型**。只有用户明确选择 BossAI Gateway 或其他已批准云能力时才进入云端路径。总部服务暂时不可达时，Pro / Business / 云端 entitlement 必须 fail-closed，但符合条件的 Free Personal 本地能力应继续可用；本地降级绝不自动产生商业使用授权。
+
 ## BYOK and BossAI Gateway / BYOK 与 BossAI Gateway
 
-- **BossAI Gateway:** usage is metered and settled through BossAI Points / plan allowance.
-  **BossAI Gateway：** 按 BossAI Points / 套餐额度统一计量与结算。
+Both paths below are **explicit opt-in cloud enhancements**. Neither is required to complete the Free Personal local core workflow.
+
+以下两条路径均为**用户主动选择的云端增强能力**，完成 Free Personal 本地核心工作流不需要它们。
+
+- **BossAI Gateway:** usage is metered and settled through BossAI Points / plan allowance. It is never a silent fallback for a failed local runtime.
+  **BossAI Gateway：** 按 BossAI Points / 套餐额度统一计量与结算；本地 runtime 失败时不得静默切换到 Gateway。
 - **BYOK:** provider/model cost is paid by the user, but BYOK still obeys Free/Pro/Business entitlement, quota, device binding and product feature gates.
   **BYOK：** Provider/模型成本由用户承担，但仍受 Free/Pro/Business entitlement、额度、设备绑定和产品权限约束，不能绕过授权。
 
+## Account and sign-in / 账号与登录
+
+Free Personal local core features do not require sign-in. Sign-in is used only when the user needs Personal Pro, BossAI Gateway, cross-device features or Business management. The current `0.1.0` authentication contract uses **phone/email + password for sign-in**; registration additionally uses a verification challenge/code. Video Agent sends those credentials to the local BossAI OS account bridge for authentication and clears password/verification-code values from the UI state after submission; it does not persist the user's password or Headquarters access/refresh tokens as a Video Agent credential store.
+
+Free Personal 本地核心能力无需登录。只有需要 Personal Pro、BossAI Gateway、跨设备能力或 Business 管理时才登录。当前 `0.1.0` 的真实认证契约为：**手机号/邮箱 + 密码登录**；注册时另外需要验证码 challenge/code。Video Agent 将凭据提交给本机 BossAI OS 账号桥完成认证，提交后清除 UI 中的密码/验证码值；Video Agent 不把用户密码或总部 access/refresh token 作为自己的凭据账本持久化。
+
+Passwordless/verification-code sign-in may replace this flow only after BossAI OS + Headquarters Commerce expose and validate a compatible authoritative sign-in contract. Video Agent must not invent a second authentication authority.
+
+只有当 BossAI OS + Headquarters Commerce 提供并验证兼容的权威无密码/验证码登录契约后，Video Agent 才能替换当前登录流程；Video Agent 不得自行创建第二套身份认证权威。
+
 ## Privacy and local data / 隐私与本地数据
 
-Customer projects, authorized voice/avatar media and generated outputs are local-first unless the user explicitly invokes an approved cloud capability. BossAI Agent never asks for or stores the user's BossAI account password. Product entitlement and quota metadata are resolved through BossAI OS / Headquarters Commerce.
+Customer projects, authorized voice/avatar media and generated outputs are local-first unless the user explicitly invokes an approved cloud capability. Account credentials entered for the current sign-in flow are relayed to the local BossAI OS account bridge for authentication and are not persisted by Video Agent as its own password/token store. Product entitlement and quota metadata are resolved through BossAI OS / Headquarters Commerce.
 
-客户项目、已授权声音/人物素材及生成成果默认本地优先；只有用户明确调用已批准的云能力时才发生相应云端处理。BossAI Agent 不要求或保存 BossAI 账号密码；套餐、额度与 entitlement 通过 BossAI OS / Headquarters Commerce 解析。
+客户项目、已授权声音/人物素材及生成成果默认本地优先；只有用户明确调用已批准的云能力时才发生相应云端处理。当前登录流程中输入的账号凭据会提交给本机 BossAI OS 账号桥完成认证，Video Agent 不把这些凭据作为自己的密码/token 存储持久化；套餐、额度与 entitlement 通过 BossAI OS / Headquarters Commerce 解析。
 
 ## Commercial-use rule / 商业用途规则
 
