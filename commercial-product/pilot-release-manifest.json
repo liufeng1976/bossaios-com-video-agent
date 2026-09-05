@@ -8,7 +8,7 @@
   "installer": {
     "name": "BossAI-Video-Agent-0.1.0-Setup.exe",
     "bytes": 358401254,
-    "sha256": "525e22848dd08443eecd828975522bb20143b390fa03ee5e260b968632273ee7",
+    "sha256": "84a38f8e555d9e179ceedc0cb948b44f0249d1d142b8e6be85e9db67be3559dc",
     "authenticode": "NotSigned",
     "warning": "Internal Pilot only. Windows SmartScreen/security warnings may appear until trusted Authenticode signing is added."
   },

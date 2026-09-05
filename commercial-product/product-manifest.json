@@ -37,7 +37,7 @@
   "commercialDesktopEvidence": "../Atlas/EVIDENCE-commercial-independent-desktop-20260830.json",
   "commercialEngineSha256": "89dc6cd33ae14a46b63ea78015a5dd93561607eb060f17aa4c91f7eb06d7be11",
   "commercialApplicationSha256": "cf4c3d01486e9fd1270d478dbcea0a15babecd756a57ebc59f70ec5887db2435",
-  "commercialInstallerSha256": "525e22848dd08443eecd828975522bb20143b390fa03ee5e260b968632273ee7",
+  "commercialInstallerSha256": "84a38f8e555d9e179ceedc0cb948b44f0249d1d142b8e6be85e9db67be3559dc",
   "commercialInstallerBuilt": true,
   "commercialInstallerArtifactName": "BossAI-Video-Agent-0.1.0-Setup.exe",
   "commercialInstallerRuntimeSmokePassed": true,

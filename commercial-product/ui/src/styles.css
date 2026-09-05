@@ -113,7 +113,11 @@ input, textarea, select { width: 100%; border: 1px solid #d8d8dc; background: #f
 .feature-card { display: flex; flex-direction: column; gap: 10px; padding: 22px; background: #fff; border: 1px solid #e1e1e5; border-radius: 14px; }
 .feature-card h3 { margin: 0; font-size: 17px; }
 .feature-card p { margin: 0 0 auto; color: #6f6f74; font-size: 13px; line-height: 1.7; }
-.feature-card button { align-self: flex-start; margin-top: 8px; border-radius: 9px; padding: 10px 15px; border: 1px solid #d6d6da; background: #fff; font-weight: 650; }
+/* Layout only: .primary/.secondary already carry their own colours, and
+   overriding background here without also setting color made primary buttons
+   render white-on-white. */
+.feature-card button { align-self: flex-start; margin-top: 8px; }
+.feature-card button:not(.primary):not(.secondary) { border-radius: 9px; padding: 10px 15px; border: 1px solid #d6d6da; background: #fff; color: #242426; font-weight: 650; }
 .feature-card.active { border-color: #cfcfd5; box-shadow: 0 1px 3px rgba(0, 0, 0, .05); }
 .feature-card.disabled { background: #fafafb; }
 .feature-card.disabled h3, .feature-card.disabled p { color: #86868b; }
