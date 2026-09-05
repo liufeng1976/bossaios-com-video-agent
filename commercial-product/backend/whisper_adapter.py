@@ -80,8 +80,19 @@ def transcribe(*, media_path: Path, worker_path: Path, language: str = "") -> di
     env.setdefault("PYTHONNOUSERSITE", "1")
     env["HF_HUB_OFFLINE"] = "1"
 
+    # -I keeps the worker's own directory off sys.path. In the packaged product
+    # that directory is the PyInstaller extraction directory, which holds the
+    # engine's Python 3.12 extension modules; without this the interpreter here
+    # imports those and dies with "Module use of python312.dll conflicts with
+    # this version of Python". -I also implies -E, which discards the PYTHON*
+    # variables set above, so the UTF-8 requirement is restated as -X utf8 --
+    # otherwise the worker writes its JSON as GBK and Chinese text arrives
+    # corrupted.
     command = [
         str(python_exe),
+        "-I",
+        "-X",
+        "utf8",
         str(worker_path),
         "--model",
         str(model),
