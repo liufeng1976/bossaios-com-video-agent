@@ -76,8 +76,8 @@ jobs:
         shell: pwsh
         run: |
           $license = Get-Content LICENSE -Raw
-          if (-not $license.Contains('Personal / Non-Commercial Grant')) { throw 'Current source license is missing the personal/non-commercial grant.' }
-          if (-not $license.Contains('Commercial Use Requires BossAI Authorization')) { throw 'Current source license is missing the commercial authorization rule.' }
+          if ($license -notmatch '(?im)^2\.\s+Personal and non-commercial grant\s*$') { throw 'Current source license is missing the personal/non-commercial grant.' }
+          if ($license -notmatch '(?im)^3\.\s+Commercial use requires authorization\s*$') { throw 'Current source license is missing the commercial authorization rule.' }
           if (-not (Test-Path LICENSE-HISTORICAL-MIT.md)) { throw 'Historical MIT notice is missing.' }
 
       - name: Git whitespace check
