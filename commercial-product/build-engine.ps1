@@ -11,15 +11,33 @@ $root = $PSScriptRoot
 $backend = Join-Path $root 'backend'
 $requirements = Join-Path $backend 'engine-build-requirements.txt'
 $entry = Join-Path $backend 'server.py'
-$cosyWorker = Join-Path $backend 'cosyvoice_worker.py'
 $versionInfo = Join-Path $backend 'windows-version-info.txt'
+
+# Worker scripts are executed by a separately installed interpreter, so they are
+# data, not imports: PyInstaller will not pick them up by following imports. The
+# engine resolves them next to itself, which under --onefile means the _MEIPASS
+# extraction directory, so each one must be passed as --add-data or the feature
+# is simply missing from the packaged product.
+#
+# The list is derived from the engine source rather than hand-maintained,
+# because a worker added to server.py without a matching --add-data produces a
+# build that passes every source-tree test and then fails on the customer's
+# machine.
+$workerNames = @(
+  Select-String -LiteralPath $entry -Pattern 'HERE / "([a-z0-9_]+_worker\.py)"' -AllMatches |
+    ForEach-Object { $_.Matches } | ForEach-Object { $_.Groups[1].Value }
+) | Sort-Object -Unique
+if ($workerNames.Count -eq 0) {
+  throw 'No worker scripts were discovered in server.py; the packaging check would be vacuous.'
+}
+$workerPaths = @($workerNames | ForEach-Object { Join-Path $backend $_ })
 
 if (-not $OutputDirectory) {
   $OutputDirectory = Join-Path $root 'out\engine'
 }
 $OutputDirectory = [System.IO.Path]::GetFullPath($OutputDirectory)
 
-foreach ($required in @($Python, $requirements, $entry, $cosyWorker, $versionInfo)) {
+foreach ($required in @($Python, $requirements, $entry, $versionInfo) + $workerPaths) {
   if (-not (Test-Path -LiteralPath $required)) {
     throw "Required BossAI Video Engine build input is missing: $required"
   }
@@ -57,7 +75,7 @@ try {
     --workpath $work `
     --specpath $spec `
     --paths $backend `
-    --add-data "$cosyWorker;." `
+    @($workerPaths | ForEach-Object { '--add-data'; "$_;." }) `
     $entry
   if ($LASTEXITCODE -ne 0) { throw "PyInstaller Engine build failed (rc=$LASTEXITCODE)." }
 

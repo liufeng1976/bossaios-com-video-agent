@@ -29,7 +29,15 @@ def _path_env(name: str) -> Path | None:
         return Path(raw).expanduser().absolute()
 
 
-def inspect_setup() -> dict[str, Any]:
+def inspect_setup(worker_path: Path | None = None) -> dict[str, Any]:
+    """Report whether local transcription can actually run.
+
+    ``worker_path`` is checked because the worker is a loose script executed by
+    a separately installed interpreter, not a module imported into this
+    process. In a frozen build it only exists if the packaging step bundled it,
+    so omitting that check would let the product report "ready" and then fail
+    at transcription time — after the customer had already downloaded the model.
+    """
     model = _path_env("BOSSAI_WHISPER_MODEL")
     python_exe = _path_env("BOSSAI_WHISPER_PYTHON")
     missing: list[str] = []
@@ -37,6 +45,8 @@ def inspect_setup() -> dict[str, Any]:
         missing.append("model-runtime")
     if python_exe is None or not python_exe.is_file():
         missing.append("python-runtime")
+    if worker_path is not None and not Path(worker_path).is_file():
+        missing.append("transcription-worker")
     return {
         "schema": "bossai.video-agent-whisper-runtime.v1",
         "engine": ENGINE_ID,
@@ -48,7 +58,7 @@ def inspect_setup() -> dict[str, Any]:
 
 def transcribe(*, media_path: Path, worker_path: Path, language: str = "") -> dict[str, Any]:
     """Transcribe a local media file into timed segments."""
-    setup = inspect_setup()
+    setup = inspect_setup(worker_path)
     if not setup["ready"]:
         raise RuntimeError("Local transcription runtime is not ready: " + ", ".join(setup["missing"]))
 

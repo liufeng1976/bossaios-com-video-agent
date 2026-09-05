@@ -44,13 +44,16 @@
         "to": "backend",
         "filter": [
           "BossAI Video Engine.exe",
-          "server.py",
           "bossai_os_bridge.py",
-          "qwen_adapter.py",
           "cosyvoice_adapter.py",
           "cosyvoice_worker.py",
           "musetalk_adapter.py",
-          "requirements.txt"
+          "qwen_adapter.py",
+          "requirements.txt",
+          "server.py",
+          "video_composer.py",
+          "whisper_adapter.py",
+          "whisper_worker.py"
         ]
       },
       {

@@ -1868,7 +1868,7 @@ def _resolve_bgm(file_name: str) -> Path:
 
 @app.get("/api/commercial/transcription/setup")
 def transcription_setup():
-    return {"success": True, "data": whisper_adapter.inspect_setup()}
+    return {"success": True, "data": whisper_adapter.inspect_setup(HERE / "whisper_worker.py")}
 
 
 @app.post("/api/commercial/transcription/upload")

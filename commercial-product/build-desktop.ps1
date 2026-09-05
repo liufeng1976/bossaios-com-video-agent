@@ -134,6 +134,33 @@ try {
     throw "Packaged runtime installers are incomplete: $($missingInstallers -join ', ')"
   }
 
+  # server.py is also the fallback entry point when the engine exe is absent, so
+  # the shipped backend directory has to be importable on its own. Derive what it
+  # needs from the source instead of trusting the extraResources filter: a module
+  # added to server.py without a matching filter entry breaks only the packaged
+  # build, which every source-tree test still passes.
+  $unpackedBackend = Join-Path $built 'win-unpackedesourcesackend'
+  $serverSource = Get-Content -LiteralPath (Join-Path $backend 'server.py') -Raw
+  $backendNames = New-Object System.Collections.Generic.HashSet[string]
+  foreach ($match in [regex]::Matches($serverSource, '(?m)^import\s+([a-z0-9_]+)\s*$')) {
+    $candidate = $match.Groups[1].Value
+    if (Test-Path -LiteralPath (Join-Path $backend "$candidate.py")) {
+      [void]$backendNames.Add("$candidate.py")
+    }
+  }
+  foreach ($match in [regex]::Matches($serverSource, 'HERE / "([a-z0-9_]+_worker\.py)"')) {
+    [void]$backendNames.Add($match.Groups[1].Value)
+  }
+  if ($backendNames.Count -eq 0) {
+    throw 'No backend dependencies were discovered in server.py; the packaging check would be vacuous.'
+  }
+  $missingBackend = @($backendNames | Where-Object {
+    -not (Test-Path -LiteralPath (Join-Path $unpackedBackend $_))
+  } | Sort-Object)
+  if ($missingBackend.Count -gt 0) {
+    throw "Packaged backend is missing files server.py depends on: $($missingBackend -join ', ')"
+  }
+
   # The manifest ships so the product can read the bundle. The developer
   # documentation deliberately does not: it names the legacy product and the
   # recovery package, which the customer distribution boundary scan forbids.
