@@ -30,7 +30,10 @@ Optional but recommended before approval:
 
 ## Approval workflow
 
-1. Copy `legal-config.example.json` to an internal, non-public approval config.
+1. Copy `legal-config.template.json` to an internal, non-public approval config.
+   The template carries a `_guide` block explaining each field; both the preflight and the
+   generator ignore it. `LEGAL_CONFIG_WORKSHEET.md` reduces the 14 fields below to 8
+   questions and states what each one affects if it is answered wrongly.
 2. Fill every required decision above.
 3. Keep `approved=false` while the package is still under review.
 4. Run:
