@@ -87,7 +87,24 @@ Do not set `musetalkCommercialRenderUatPassed=true` until the evidence is review
 
 GA requires the exact customer application and NSIS installer to have valid trusted Authenticode signatures and trusted timestamp evidence. Internal Pilot currently permits unsigned artifacts; GA does not.
 
-Run after signing:
+### Producing a signed build
+
+`build-desktop.ps1 -EnableCodeSigning` refuses to run unless the certificate is supplied,
+so an unsigned artifact can never be mistaken for a signed one. Point it at the real
+certificate through the environment, then build:
+
+```text
+$env:WIN_CSC_LINK = "<path to the .pfx, or its base64 form>"
+$env:CSC_KEY_PASSWORD = "<certificate password>"
+powershell -ExecutionPolicy Bypass -File build-desktop.ps1 -Mode dist -EnableCodeSigning
+```
+
+Never commit the certificate, its password, or its base64 form. Supply them from the
+machine environment or a secret store for the duration of the build only.
+
+The build runs `verify-windows-signing.ps1` itself and throws if Authenticode verification
+fails, so a signed build cannot complete while producing an unverifiable artifact. Run the
+verifier standalone when checking an artifact that was signed separately:
 
 ```text
 powershell -ExecutionPolicy Bypass -File verify-windows-signing.ps1 ^
