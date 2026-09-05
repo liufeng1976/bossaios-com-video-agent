@@ -10,7 +10,11 @@
   "commercialUiBuildValidated": true,
   "commercialAccountUiIntegrated": true,
   "freemiumTierProjectionIntegrated": true,
-  "freemiumTiers": ["free-personal", "personal-pro", "business"],
+  "freemiumTiers": [
+    "free-personal",
+    "personal-pro",
+    "business"
+  ],
   "newFormalVersionLicense": "BossAI Community Source License 1.0 + packaged product EULA",
   "historicalMitGrantPreserved": true,
   "coreSourcePublicationStoppedForNewFormalVersions": false,
@@ -35,9 +39,9 @@
   "commercialDesktopGracefulShutdownPassed": true,
   "commercialDesktopPackagedBoundaryViolations": 0,
   "commercialDesktopEvidence": "../Atlas/EVIDENCE-commercial-independent-desktop-20260830.json",
-  "commercialEngineSha256": "89dc6cd33ae14a46b63ea78015a5dd93561607eb060f17aa4c91f7eb06d7be11",
+  "commercialEngineSha256": "5cbfbcb0d1480485b9dd9dd86bf27699e98ca55f52994f5399a6039095687843",
   "commercialApplicationSha256": "cf4c3d01486e9fd1270d478dbcea0a15babecd756a57ebc59f70ec5887db2435",
-  "commercialInstallerSha256": "84a38f8e555d9e179ceedc0cb948b44f0249d1d142b8e6be85e9db67be3559dc",
+  "commercialInstallerSha256": "e75734f24943a9e90c75ee748c3f1d56f7351884d6b9764669e821ad3a60ba29",
   "commercialInstallerBuilt": true,
   "commercialInstallerArtifactName": "BossAI-Video-Agent-0.1.0-Setup.exe",
   "commercialInstallerRuntimeSmokePassed": true,
@@ -48,7 +52,11 @@
   "runtimeInstallerFailureIsolationValidated": true,
   "runtimeProvisioningEvidence": "../Atlas/EVIDENCE-commercial-runtime-provisioning-20260830.json",
   "baseInstallerBundlesModelWeights": false,
-  "commercialRuntimeRoles": ["llm", "tts", "digitalHuman"],
+  "commercialRuntimeRoles": [
+    "llm",
+    "tts",
+    "digitalHuman"
+  ],
   "officialSourceRuntimeInstallersPrepared": true,
   "runtimeSourceLockPrepared": true,
   "runtimeNoticeCollectorPrepared": true,

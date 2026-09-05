@@ -6,7 +6,7 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-$expectedSha256 = '84a38f8e555d9e179ceedc0cb948b44f0249d1d142b8e6be85e9db67be3559dc'
+$expectedSha256 = 'e75734f24943a9e90c75ee748c3f1d56f7351884d6b9764669e821ad3a60ba29'
 $resolved = (Resolve-Path -LiteralPath $InstallerPath).Path
 $actualSha256 = (Get-FileHash -LiteralPath $resolved -Algorithm SHA256).Hash.ToLowerInvariant()
 $signature = Get-AuthenticodeSignature -LiteralPath $resolved
