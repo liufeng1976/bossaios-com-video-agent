@@ -2,6 +2,23 @@
 
 This runbook only closes real GA evidence. It must not be used to manufacture PASS states.
 
+## 0. Readiness preflight (run this first)
+
+Before collecting rights-cleared media or arranging a real Business account, find out
+whether either UAT can be attempted at all:
+
+```text
+python uat-preflight.py
+```
+
+It renders nothing, authenticates nothing, writes no evidence and changes no gate. It
+reports, per track, exactly what is blocking — an unresolved runtime root, a MuseTalk
+installation that would fall back to upstream demo assets, a missing ffprobe (which would
+make the render succeed but the UAT fail closed), an unreachable account service, or the
+absence of an authenticated session. Exit 0 means every checked track is ready to attempt.
+
+Check a single track with `--track musetalk` or `--track entitlement`.
+
 ## 1. Live BossAI Business entitlement UAT
 
 Prerequisites:
