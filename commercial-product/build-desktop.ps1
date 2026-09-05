@@ -139,7 +139,7 @@ try {
   # needs from the source instead of trusting the extraResources filter: a module
   # added to server.py without a matching filter entry breaks only the packaged
   # build, which every source-tree test still passes.
-  $unpackedBackend = Join-Path $built 'win-unpackedesourcesackend'
+  $unpackedBackend = Join-Path $built 'win-unpacked\resources\backend'
   $serverSource = Get-Content -LiteralPath (Join-Path $backend 'server.py') -Raw
   $backendNames = New-Object System.Collections.Generic.HashSet[string]
   foreach ($match in [regex]::Matches($serverSource, '(?m)^import\s+([a-z0-9_]+)\s*$')) {
@@ -176,7 +176,15 @@ try {
   }
   Copy-Item -LiteralPath $built -Destination $output -Recurse
 
-  $installer = Get-ChildItem -LiteralPath $output -File -Filter 'BossAI-Video-Community-*-Setup.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+  # Match on the NSIS suffix rather than a hardcoded product name. The previous
+  # literal still named a former product, so it matched nothing: unsigned builds
+  # silently skipped the hash, and signed builds always threw before reaching
+  # Authenticode verification.
+  $installers = @(Get-ChildItem -LiteralPath $output -File -Filter '*-Setup.exe' -ErrorAction SilentlyContinue)
+  if ($installers.Count -gt 1) {
+    throw "Expected exactly one NSIS installer in $output but found $($installers.Count): $(($installers | ForEach-Object { $_.Name }) -join ', ')"
+  }
+  $installer = $installers | Select-Object -First 1
   $unpacked = Join-Path $output 'win-unpacked'
   Write-Host 'RESULT: BossAI Video Agent isolated desktop build passed.'
   Write-Host "Mode    : $Mode"
@@ -188,7 +196,7 @@ try {
     Write-Host "SHA256   : $((Get-FileHash -LiteralPath $installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant())"
   }
   if ($EnableCodeSigning) {
-    if (-not $installer) { throw 'Signed dist build did not produce the expected installer.' }
+    if (-not $installer) { throw "Signed dist build produced no *-Setup.exe in $output." }
     $applicationExe = Join-Path $unpacked 'BossAI Video Agent.exe'
     $verifier = Join-Path $root 'verify-windows-signing.ps1'
     & $verifier -ApplicationExe $applicationExe -InstallerExe $installer.FullName
