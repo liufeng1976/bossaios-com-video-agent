@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Verify / download v0.1.0-pilot
+    url: https://github.com/liufeng1976/bossaios-com-video-agent/releases/tag/v0.1.0-pilot
+    about: Read the Pilot limitations, verify SHA-256, and download only from the GitHub Release.
+  - name: BossAI product and commercial information
+    url: https://bossaios.com
+    about: Product information and the BossAI commercial entry point. Do not post private commercial/account data in public GitHub Issues.
