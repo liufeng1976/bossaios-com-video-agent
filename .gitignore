@@ -11,6 +11,7 @@ formal-dev-baseline/workspace/
 *.pid
 *.tmp
 *marker*.json
+.bossai-local/
 
 # Windows reserved-name artifact from shell probes
 NUL
