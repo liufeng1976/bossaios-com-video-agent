@@ -1,21 +1,73 @@
 # BossAI Video Agent
 
-> **bossaios.com · Windows-first bilingual Freemium desktop software**
-> **bossaios.com · Windows 优先的中英文双语 Freemium 桌面软件**
+> **Free local-first Windows AI video workflow for personal and non-commercial use.**  
+> **个人/非商业免费 · Windows 本地优先 AI 视频工作流。**
+
+[![GitHub stars](https://img.shields.io/github/stars/liufeng1976/bossaios-com-video-agent?style=social)](https://github.com/liufeng1976/bossaios-com-video-agent/stargazers)
+[![Windows](https://img.shields.io/badge/platform-Windows-blue)](https://github.com/liufeng1976/bossaios-com-video-agent/releases)
+[![BossAI](https://img.shields.io/badge/BossAI-bossaios.com-black)](https://bossaios.com)
+
+**Script → voice → talking avatar → subtitles / music / picture-in-picture → cover → final export, in one desktop workflow.**
+
+**文案 → 配音 → 数字人口播 → 字幕 / 音乐 / 画中画 → 封面 → 成片导出，一条桌面工作流完成。**
+
+## Download for Windows / Windows 免费试用
+
+**Current public evaluation build:** `v0.1.0-pilot`
+
+- [Download from GitHub Releases](https://github.com/liufeng1976/bossaios-com-video-agent/releases/tag/v0.1.0-pilot)
+- Website: https://bossaios.com
+- Verify the installer with the published SHA-256 before running it.
+
+当前可公开下载的是 **内部 Pilot / 评估版**。请只从 GitHub Releases 下载，并在运行前核对发布页 SHA-256。
+
+> **Pilot notice:** the current Windows installer is unsigned and is not approved for commercial production, client delivery, or paid services. Personal/non-commercial evaluation is free under the BossAI Community Source License. Commercial use requires BossAI authorization.
+>
+> **Pilot 提示：** 当前 Windows 安装包尚未签名，不得用于商业生产、客户交付或收费服务。个人/非商业评估免费；商业用途必须获得 BossAI 授权。
+
+If the project is useful, please **Star** the repository. It directly helps more creators and developers discover the project.
+
+如果它对你有帮助，欢迎点一个 **Star**，这会直接帮助更多创作者和开发者发现项目。
+
+## What you can do / 能做什么
+
+- **Local script generation & rewrite / 本地文案生成与改写** — Qwen
+- **Local voice generation / 本地配音** — CosyVoice2
+- **Local talking-avatar video / 本地数字人口播** — MuseTalk
+- **Optional local transcription / 可选本地转写** — Whisper
+- **Subtitles, audio mix, PIP, cover and export / 字幕、混音、画中画、封面与导出** — FFmpeg
+- **Local-first by default / 默认本地优先** — core Free Personal workflow does not require a cloud model after the required runtimes are installed
 
 BossAI Agent turns script creation, voice, digital-human video, editing, cover generation and export into one Windows workflow. This GitHub repository is the public source and release repository for BossAI-owned implementation. Personal and non-commercial use is free under the BossAI Community Source License; commercial use requires BossAI commercial authorization.
 
 BossAI Agent 将文案、配音、数字人口播、视频剪辑、封面与导出整合为一条 Windows 工作流。本 GitHub 仓库同时承担 BossAI 自有实现的公开源码与发行职责。个人及非商业用途按 BossAI Community Source License 免费使用；商业用途必须取得 BossAI 商业授权。
 
-## Download / 下载
+## First run in 30 seconds / 30 秒开始
 
-Use **GitHub Releases** for official Windows installers, release notes and SHA-256 checksums. Do not trust installers from unofficial mirrors.
+```text
+GitHub Releases
+→ download installer
+→ verify SHA-256
+→ install BossAI Agent
+→ choose 简体中文 / English
+→ enter Local Free Personal without signing in
+→ install required local runtimes as needed
+→ create the first video locally
+```
 
-请仅通过 **GitHub Releases** 获取官方 Windows 安装包、版本说明和 SHA-256 校验值，不要使用非官方镜像。
+Free Personal local core features do **not** require a BossAI account. Sign in only when you need Personal Pro, BossAI Gateway, cross-device features, or Business management.
 
-**Current release status / 当前发布状态:** `0.1.0` is **Internal Pilot Ready**. Local Windows build, packaged first-run, real NSIS install/start/exit/uninstall, Free Personal/commercial fail-closed behavior, Qwen/CosyVoice2/MuseTalk installed runtimes, runtime SHA/NOTICE verification, D-drive runtime storage, and MuseTalk CUDA runtime checks have passed. It is **not approved for GA/public commercial release** until live BossAI Business entitlement UAT, an authorized-media MuseTalk commercial render UAT, final customer legal approval, and trusted Authenticode signing are complete. The current installer is unsigned and must be treated as Internal Pilot only.
+Free Personal 本地核心能力**无需 BossAI 账号**。只有需要 Personal Pro、BossAI Gateway、跨设备能力或 Business 管理时才登录。
 
-`0.1.0` 已达到 **Internal Pilot Ready / 内部 Pilot 可用**：本地 Windows 构建、打包首启、真实 NSIS 安装/启动/退出/卸载、Free Personal/商业 fail-closed、Qwen/CosyVoice2/MuseTalk 已安装 runtime、模型 SHA/NOTICE、D 盘 runtime 存储与 MuseTalk CUDA runtime 均已通过。当前仍**不得作为 GA/公开商业正式版发布**，剩余门槛为真实 BossAI Business entitlement UAT、使用授权媒体的 MuseTalk 商业 render UAT、最终客户法律批准和可信 Authenticode 签名。当前安装包未签名，仅限 Internal Pilot。
+## Current release status / 当前发布状态
+
+`0.1.0` is **Internal Pilot Ready**. Local Windows build, packaged first-run, real NSIS install/start/exit/uninstall, Free Personal/commercial fail-closed behavior, Qwen/CosyVoice2/MuseTalk installed runtimes, runtime SHA/NOTICE verification, D-drive runtime storage, and MuseTalk CUDA runtime checks have passed.
+
+It is **not approved for GA/public commercial release** until live BossAI Business entitlement UAT, an authorized-media MuseTalk commercial render UAT, final customer legal approval, and trusted Authenticode signing are complete. The current installer is unsigned and must be treated as Internal Pilot only.
+
+`0.1.0` 已达到 **Internal Pilot Ready / 内部 Pilot 可用**：本地 Windows 构建、打包首启、真实 NSIS 安装/启动/退出/卸载、Free Personal/商业 fail-closed、Qwen/CosyVoice2/MuseTalk 已安装 runtime、模型 SHA/NOTICE、D 盘 runtime 存储与 MuseTalk CUDA runtime 均已通过。
+
+当前仍**不得作为 GA/公开商业正式版发布**，剩余门槛为真实 BossAI Business entitlement UAT、使用授权媒体的 MuseTalk 商业 render UAT、最终客户法律批准和可信 Authenticode 签名。当前安装包未签名，仅限 Internal Pilot。
 
 ## Plans / 套餐
 
@@ -91,9 +143,9 @@ Both paths below are **explicit opt-in cloud enhancements**. Neither is required
 
 以下两条路径均为**用户主动选择的云端增强能力**，完成 Free Personal 本地核心工作流不需要它们。
 
-- **BossAI Gateway:** usage is metered and settled through BossAI Points / plan allowance. It is never a silent fallback for a failed local runtime.
+- **BossAI Gateway:** usage is metered and settled through BossAI Points / plan allowance. It is never a silent fallback for a failed local runtime.  
   **BossAI Gateway：** 按 BossAI Points / 套餐额度统一计量与结算；本地 runtime 失败时不得静默切换到 Gateway。
-- **BYOK:** provider/model cost is paid by the user, but BYOK still obeys Free/Pro/Business entitlement, quota, device binding and product feature gates.
+- **BYOK:** provider/model cost is paid by the user, but BYOK still obeys Free/Pro/Business entitlement, quota, device binding and product feature gates.  
   **BYOK：** Provider/模型成本由用户承担，但仍受 Free/Pro/Business entitlement、额度、设备绑定和产品权限约束，不能绕过授权。
 
 ## Account and sign-in / 账号与登录
