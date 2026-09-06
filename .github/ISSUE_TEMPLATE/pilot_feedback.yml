@@ -1,0 +1,124 @@
+name: Pilot feedback / Pilot 试用反馈
+description: Share your v0.1.0-pilot install and first-workflow experience without posting secrets or customer media. / 反馈 v0.1.0-pilot 安装与首个工作流体验，请勿提交密钥或客户素材。
+title: "[Pilot] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for evaluating **BossAI Video Agent v0.1.0-pilot**.
+
+        This build is unsigned and is **not GA / not approved for commercial production**. Please verify the published SHA-256 before running it.
+
+        Do **not** post passwords, API keys, cookies, device credentials, private logs, customer media, voice samples, avatar media, or any other sensitive/private content.
+
+        感谢试用 **BossAI Video Agent v0.1.0-pilot**。
+
+        当前安装包未签名，属于 **Internal Pilot / 非 GA / 非商业正式版**。运行前请先核对公开 SHA-256。
+
+        请**不要**提交密码、API Key、Cookie、设备凭据、私有日志、客户媒体、音色样本、人物素材或其他敏感/隐私内容。
+
+  - type: input
+    id: version
+    attributes:
+      label: Pilot version / Pilot 版本
+      value: v0.1.0-pilot
+      description: If you are testing another build, replace this value. / 如测试其他构建，请修改。
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install_result
+    attributes:
+      label: Installer result / 安装结果
+      options:
+        - Installed and launched successfully / 安装并启动成功
+        - Installed but could not launch / 安装成功但无法启动
+        - Installation failed / 安装失败
+        - Not tested yet / 尚未测试
+    validations:
+      required: true
+
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version / Windows 版本
+      placeholder: e.g. Windows 11 24H2
+    validations:
+      required: true
+
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU / 显卡（可选）
+      placeholder: e.g. NVIDIA RTX 4060 Laptop GPU
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: runtime_progress
+    attributes:
+      label: What did you successfully reach? / 已成功完成哪些步骤？
+      options:
+        - label: Verified installer SHA-256 / 已核对安装包 SHA-256
+        - label: Installed and opened the desktop app / 已安装并打开桌面应用
+        - label: Entered Free Personal without BossAI sign-in / 未登录进入 Free Personal
+        - label: Installed Qwen runtime / 已安装 Qwen runtime
+        - label: Installed CosyVoice2 runtime / 已安装 CosyVoice2 runtime
+        - label: Installed MuseTalk runtime / 已安装 MuseTalk runtime
+        - label: Installed optional Whisper runtime / 已安装可选 Whisper runtime
+        - label: Completed script generation/rewrite / 已完成文案生成或改写
+        - label: Completed local voice generation / 已完成本地配音
+        - label: Completed talking-avatar generation / 已完成数字人口播
+        - label: Completed subtitle/edit/export workflow / 已完成字幕、剪辑或导出
+    validations:
+      required: false
+
+  - type: textarea
+    id: success
+    attributes:
+      label: What worked well? / 哪些地方运行正常？
+      description: Tell us the furthest successful step and what was clear or useful. / 请说明最远成功到哪一步，以及哪些地方清楚或有用。
+      placeholder: No customer media or private logs. / 请勿提交客户素材或私有日志。
+    validations:
+      required: true
+
+  - type: textarea
+    id: blocker
+    attributes:
+      label: What blocked you? / 什么阻塞了你？
+      description: Include the user-visible error text and reproduction steps, but remove secrets/private data. / 可填写界面错误文字和复现步骤，但请删除敏感/隐私信息。
+      placeholder: "1. ...\n2. ...\n3. ..."
+    validations:
+      required: false
+
+  - type: dropdown
+    id: intended_use
+    attributes:
+      label: Intended use if the product becomes ready / 如果产品成熟，你最可能怎么用？
+      options:
+        - Personal non-commercial creation / 个人非商业创作
+        - Personal Pro / 个人专业版
+        - Business internal production / 企业内部生产
+        - Client delivery or paid production / 客户交付或收费制作
+        - Evaluation only / 仅评估
+        - Not sure yet / 暂不确定
+    validations:
+      required: true
+
+  - type: textarea
+    id: missing
+    attributes:
+      label: Most important missing capability / 最希望补齐的能力
+      description: One concrete improvement is more useful than a long wishlist. / 优先写一个最影响使用的具体改进。
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety and Pilot acknowledgement / 安全与 Pilot 确认
+      options:
+        - label: I removed passwords, API keys, cookies, device credentials, private logs, customer media, voices, avatar media and other sensitive/private information. / 我已移除密码、API Key、Cookie、设备凭据、私有日志、客户媒体、声音、人物素材及其他敏感/隐私信息。
+          required: true
+        - label: I understand v0.1.0-pilot is unsigned and is not a GA/commercial-production release. / 我知道 v0.1.0-pilot 未签名，且不是 GA/商业生产正式版。
+          required: true
