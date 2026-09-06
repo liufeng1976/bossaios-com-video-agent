@@ -30,6 +30,35 @@
 >
 > **Pilot 提示：** 当前 Windows 安装包尚未签名，不得用于商业生产、客户交付或收费服务。个人/非商业评估免费；商业用途必须获得 BossAI 授权。
 
+## Verify the Pilot before you trust it / 先验证 Pilot
+
+The current installer is independently checkable from the public repository and Release metadata:
+
+- Installer: `BossAI-Video-Agent-0.1.0-Setup.exe`
+- SHA-256: `e75734f24943a9e90c75ee748c3f1d56f7351884d6b9764669e821ad3a60ba29`
+- Authenticode: **NotSigned** — a matching SHA-256 proves file identity against the published checksum; it does **not** turn the Pilot into a signed or GA build.
+- Verification files: [`PILOT_SHA256SUMS.txt`](PILOT_SHA256SUMS.txt), [`VERIFY_PILOT.ps1`](VERIFY_PILOT.ps1), [`PILOT_RELEASE.md`](PILOT_RELEASE.md).
+
+```powershell
+Get-FileHash .\BossAI-Video-Agent-0.1.0-Setup.exe -Algorithm SHA256
+.\VERIFY_PILOT.ps1
+```
+
+**Passed for this Internal Pilot:** real NSIS install → launch → shutdown → uninstall smoke; Free Personal local mode without BossAI sign-in after license acceptance; pinned runtime source/hash verification; runtime LICENSE/NOTICE coverage; public-package boundary scan with zero forbidden legacy/model-weight/credential violations.
+
+**Still blocked for GA/public commercial release:** live BossAI Business entitlement UAT; authorized-media MuseTalk commercial render UAT; trusted Authenticode signing for the app and installer; final approved customer legal bundle. Real publishing remains disabled.
+
+当前安装包可以直接根据公开仓库和 Release 元数据自行核验：
+
+- 安装包：`BossAI-Video-Agent-0.1.0-Setup.exe`
+- SHA-256：`e75734f24943a9e90c75ee748c3f1d56f7351884d6b9764669e821ad3a60ba29`
+- Authenticode：**NotSigned / 未签名**。SHA-256 一致只能证明文件与公开校验值一致，**不代表**该 Pilot 已完成代码签名或 GA 批准。
+- 可核验文件：[`PILOT_SHA256SUMS.txt`](PILOT_SHA256SUMS.txt)、[`VERIFY_PILOT.ps1`](VERIFY_PILOT.ps1)、[`PILOT_RELEASE.md`](PILOT_RELEASE.md)。
+
+**Internal Pilot 已通过：** 真实 NSIS 安装 → 启动 → 退出 → 卸载 smoke；接受许可后 Free Personal 本地模式无需 BossAI 登录；固定 runtime 来源/哈希校验；runtime LICENSE/NOTICE 覆盖；公开客户包边界扫描中恢复旧代码、模型权重、凭据等禁止项为 0。
+
+**GA/公开商业正式版仍阻塞：** 真实 BossAI Business entitlement UAT；使用授权媒体的 MuseTalk 商业 render UAT；应用与安装包可信 Authenticode 签名；最终客户法律文件批准。真实发布动作仍保持关闭。
+
 If the project is useful, please **Star** the repository. It directly helps more creators and developers discover the project.
 
 如果它对你有帮助，欢迎点一个 **Star**，这会直接帮助更多创作者和开发者发现项目。
