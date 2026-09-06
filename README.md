@@ -6,6 +6,11 @@
 [![GitHub stars](https://img.shields.io/github/stars/liufeng1976/bossaios-com-video-agent?style=social)](https://github.com/liufeng1976/bossaios-com-video-agent/stargazers)
 [![Windows](https://img.shields.io/badge/platform-Windows-blue)](https://github.com/liufeng1976/bossaios-com-video-agent/releases)
 [![BossAI](https://img.shields.io/badge/BossAI-bossaios.com-black)](https://bossaios.com)
+[![License](https://img.shields.io/badge/license-BossAI%20Community%20Source-orange)](LICENSE)
+
+**License classification / 许可分类: Source Available, not OSI Open Source / 源码公开，不是 OSI 开源。** Personal, educational, evaluation, research and other non-commercial use is free under the BossAI Community Source License; commercial use requires BossAI authorization. Historical MIT-licensed revisions keep the rights already granted with those revisions.
+
+**当前许可分类：Source Available / 源码公开，不是 OSI Open Source。** 个人、教育、评估、研究及其他非商业用途免费；商业用途需要 BossAI 授权。历史上已经按 MIT 发布的 revision，其既有 MIT 权利继续有效。
 
 **Script → voice → talking avatar → subtitles / music / picture-in-picture → cover → final export, in one desktop workflow.**
 
