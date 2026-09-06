@@ -70,9 +70,13 @@ Free Personal 本地核心能力**无需 BossAI 账号**。只有需要 Personal
 
 It is **not approved for GA/public commercial release** until live BossAI Business entitlement UAT, an authorized-media MuseTalk commercial render UAT, final customer legal approval, and trusted Authenticode signing are complete. The current installer is unsigned and must be treated as Internal Pilot only.
 
+**Pilot legal status:** `EULA.md`, `TERMS.md` and `PRIVACY.md` are published as pre-release drafts for transparency. They are not the final approved GA customer legal bundle; final customer legal approval remains a separate GA gate.
+
 `0.1.0` 已达到 **Internal Pilot Ready / 内部 Pilot 可用**：本地 Windows 构建、打包首启、真实 NSIS 安装/启动/退出/卸载、Free Personal/商业 fail-closed、Qwen/CosyVoice2/MuseTalk 已安装 runtime、模型 SHA/NOTICE、D 盘 runtime 存储与 MuseTalk CUDA runtime 均已通过。
 
 当前仍**不得作为 GA/公开商业正式版发布**，剩余门槛为真实 BossAI Business entitlement UAT、使用授权媒体的 MuseTalk 商业 render UAT、最终客户法律批准和可信 Authenticode 签名。当前安装包未签名，仅限 Internal Pilot。
+
+**Pilot 法律状态：** `EULA.md`、`TERMS.md` 和 `PRIVACY.md` 当前作为预发布草案公开，用于透明披露；它们不是最终已批准的 GA 客户法律文件，最终客户法律批准仍是独立 GA 门槛。
 
 ## Plans / 套餐
 
@@ -95,7 +99,7 @@ GitHub Releases
 → download installer
 → install BossAI Agent
 → choose 简体中文 / English
-→ review and accept the approved EULA/Terms/Privacy
+→ review the Pilot legal drafts/notices (EULA / Terms / Privacy); final customer legal approval is still a GA gate
 → enter Local Free Personal without signing in
 → install approved local runtimes as needed
 → create the first video locally
@@ -109,7 +113,7 @@ GitHub Releases
 → 下载安装包
 → 安装 BossAI Agent
 → 选择简体中文 / English
-→ 查看并接受已批准的 EULA / Terms / Privacy
+→ 查看 Pilot 法律草案/提示（EULA / Terms / Privacy）；最终客户法律批准仍是 GA 门槛
 → 无需登录进入本地 Free Personal
 → 按需安装已批准的本地运行时
 → 在本地制作第一条视频
