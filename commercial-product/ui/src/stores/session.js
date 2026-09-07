@@ -540,10 +540,16 @@ export async function quitApp() {
   }
 }
 
-export async function openUpgrade() {
+// `source` says which button was pressed so the visit can be attributed. The
+// desktop shell validates it against its own allowlist and builds the URL
+// itself, so nothing here can redirect the customer somewhere else.
+export async function openUpgrade(source = '') {
   error.value = ''
   try {
-    const result = await globalThis?.bossaiDesktop?.openUpgrade?.()
+    const result = await globalThis?.bossaiDesktop?.openUpgrade?.({
+      source: String(source || ''),
+      lang: locale.value,
+    })
     if (!result?.opened) throw new Error(result?.reason || tr('无法打开升级入口', 'Unable to open upgrade page'))
   } catch (e) {
     error.value = e?.message || tr('无法打开升级入口', 'Unable to open upgrade page')

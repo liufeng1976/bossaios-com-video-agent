@@ -7,7 +7,16 @@ const path = require('path')
 
 const PRODUCT_ID = 'bossai-video-agent'
 const PRODUCT_NAME = 'BossAI Video Agent'
-const UPGRADE_URL = 'https://bossaios.com/'
+// The pricing page rather than the site root, because that is the page that
+// actually lists plans. There is no Chinese pricing page yet, so zh users land
+// here too; `lang` is carried so the site can route them once one exists.
+const UPGRADE_URL = 'https://bossaios.com/en/pricing.html'
+
+// Where in the app the customer asked to upgrade. An allowlist, because the
+// renderer must never be able to steer this link: it decides only which of
+// these labels is attached, never the destination.
+const UPGRADE_SOURCES = new Set(['settings-plan', 'settings-account', 'quota-exhausted'])
+const UPGRADE_LANGS = new Set(['zh-CN', 'en'])
 const API_HOST = '127.0.0.1'
 const API_PORT = Number(process.env.BOSSAI_VIDEO_PORT || 8765)
 
@@ -354,10 +363,29 @@ ipcMain.handle('bossai:quit-app', () => {
   app.quit()
   return { quitting: true }
 })
-ipcMain.handle('bossai:open-upgrade', async () => {
+// Carries enough context for the site to show the right plan and to attribute
+// the visit, and nothing more: no installation ID, no account, no device or
+// usage detail. Everything here is either a constant or one of the fixed
+// labels above.
+function buildUpgradeUrl(context) {
+  const url = new URL(UPGRADE_URL)
+  const source = UPGRADE_SOURCES.has(context?.source) ? context.source : 'unspecified'
+  const lang = UPGRADE_LANGS.has(context?.lang) ? context.lang : 'en'
+  url.searchParams.set('product', PRODUCT_ID)
+  url.searchParams.set('version', app.getVersion())
+  url.searchParams.set('lang', lang)
+  url.searchParams.set('utm_source', 'video-agent-desktop')
+  url.searchParams.set('utm_medium', 'app')
+  url.searchParams.set('utm_campaign', 'upgrade')
+  url.searchParams.set('utm_content', source)
+  return url.toString()
+}
+
+ipcMain.handle('bossai:open-upgrade', async (_event, context) => {
+  const url = buildUpgradeUrl(context)
   try {
-    await shell.openExternal(UPGRADE_URL)
-    return { opened: true, url: UPGRADE_URL }
+    await shell.openExternal(url)
+    return { opened: true, url }
   } catch (error) {
     return { opened: false, reason: error?.message || String(error) }
   }

@@ -45,7 +45,7 @@
           <div class="button-row">
             <button class="secondary" :disabled="authBusy" @click="signOutAccount">{{ tr('退出账号', 'Sign out') }}</button>
             <button class="secondary" :disabled="authBusy" @click="refreshStatus">{{ tr('同步套餐与额度', 'Sync plan & quota') }}</button>
-            <button class="primary" @click="openUpgrade">{{ tr('升级 / 购买 Business', 'Upgrade / Buy Business') }}</button>
+            <button class="primary" @click="openUpgrade('settings-account')">{{ tr('升级 / 购买 Business', 'Upgrade / Buy Business') }}</button>
           </div>
         </template>
 
@@ -105,7 +105,7 @@
         </div>
         <p class="account-help">{{ tr('本地核心能力默认在本机执行，不消耗 BossAI Points，也不会在本地 runtime 缺失或失败时静默回退到云端。BossAI AI Gateway 与 BYOK 都是用户主动选择的增强路径；Gateway 按总部 Points 规则计量，BYOK 只改变模型费用承担方式，二者都不能绕过 Entitlement、商业许可或产品权限。', 'Local core features run on this device by default, consume no BossAI Points, and never silently fall back to cloud when a local runtime is missing or fails. BossAI AI Gateway and BYOK are explicit opt-in enhancements; Gateway follows Headquarters Points rules, while BYOK only changes provider-cost responsibility. Neither bypasses entitlement, commercial licensing, or product gates.') }}</p>
         <p v-if="accountAuthenticated && !businessUseAllowed" class="runtime-note">{{ tr('当前套餐仅授权个人用途。为客户交付、公司生产、收费服务或营销经营使用本软件前，请升级到 Business。', 'Your current tier is for personal use only. Upgrade to Business before client delivery, company production, paid services or commercial marketing use.') }}</p>
-        <div class="button-row"><button class="primary" @click="openUpgrade">{{ tr('查看升级方案', 'View upgrade options') }}</button></div>
+        <div class="button-row"><button class="primary" @click="openUpgrade('settings-plan')">{{ tr('查看升级方案', 'View upgrade options') }}</button></div>
       </article>
 
       <article v-show="activeSection === 'license'" class="account-card">

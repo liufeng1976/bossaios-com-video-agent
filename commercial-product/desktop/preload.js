@@ -17,7 +17,10 @@ try {
     platform: 'win32',
     localControlToken,
     legalStatus: () => ipcRenderer.invoke('bossai:legal-status'),
-    openUpgrade: () => ipcRenderer.invoke('bossai:open-upgrade'),
+    openUpgrade: (context) => ipcRenderer.invoke('bossai:open-upgrade', {
+      source: String(context?.source || ''),
+      lang: String(context?.lang || ''),
+    }),
     quitApp: () => ipcRenderer.invoke('bossai:quit-app'),
     exportFinalVideo: (fileUrl, suggestedName) => ipcRenderer.invoke('bossai:export-final-video', {
       fileUrl: String(fileUrl || ''),
