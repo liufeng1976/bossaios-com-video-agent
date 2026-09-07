@@ -378,13 +378,13 @@ def _entitlement_snapshot() -> dict[str, Any]:
             "gatewayExecutionAllowed": False,
             "localFreeMode": True,
             "deviceRegistered": False,
-            # Deliberately not the BossAI authority: this number is held on the
-            # customer's own machine and must never be mistaken for the quota
-            # the commercial authority issues.
-            "quotaAuthority": local_quota.AUTHORITY,
-            "quotaPeriod": local_quota.PERIOD,
+            # Deliberately not the BossAI authority when metering is on: this
+            # number is held on the customer's own machine and must never be
+            # mistaken for the quota the commercial authority issues.
+            "quotaAuthority": local_quota.AUTHORITY if quota["enabled"] else "none-local-free",
+            "quotaPeriod": local_quota.PERIOD if quota["enabled"] else "local-unmetered",
             "quotaRemaining": quota["remainingUnits"],
-            "quotaResetAt": quota["resetAt"],
+            "quotaResetAt": quota.get("resetAt", ""),
             "localFreeQuota": quota,
             "upgradeAvailable": True,
             "businessUseAllowed": False,
@@ -394,8 +394,12 @@ def _entitlement_snapshot() -> dict[str, Any]:
                 if not accepted
                 else (
                     f"Local Free Personal is active for personal/non-commercial use. {reason} "
-                    f"{quota['remainingUnits']} of {quota['dailyUnits']} daily local units remain. "
-                    "Commercial use still requires a verified BossAI Business entitlement."
+                    + (
+                        f"{quota['remainingUnits']} of {quota['dailyUnits']} daily local units remain. "
+                        if quota["enabled"]
+                        else ""
+                    )
+                    + "Commercial use still requires a verified BossAI Business entitlement."
                 )
             ),
         }

@@ -93,12 +93,12 @@
         <div class="account-summary">
           <div>
             <span>Free Personal</span>
-            <strong>{{ localFreeMode ? quotaDisplay : tr('永久免费 · 本地核心', 'Free forever · local core') }}</strong>
+            <strong>{{ localQuotaEnabled ? quotaDisplay : tr('永久免费 · 本地核心', 'Free forever · local core') }}</strong>
           </div>
           <div><span>Personal Pro</span><strong>{{ tr('订阅 · 本地 + 可选云增强', 'Subscription · local + optional cloud') }}</strong></div>
           <div><span>Business</span><strong>{{ tr('商业授权 · 本地 + 云治理', 'Commercial licence · local + cloud governance') }}</strong></div>
         </div>
-        <div v-if="localFreeMode" class="account-summary">
+        <div v-if="localQuotaEnabled" class="account-summary">
           <div><span>{{ tr('额度恢复', 'Quota reset') }}</span><strong>{{ quotaResetLabel }}</strong></div>
           <div v-if="quotaCostsLabel"><span>{{ tr('每次消耗', 'Cost per item') }}</span><strong>{{ quotaCostsLabel }}</strong></div>
           <div><span>{{ tr('计量方式', 'Metering') }}</span><strong>{{ tr('本机计数 · 任务成功才计', 'Counted on this device · charged on success') }}</strong></div>
@@ -205,7 +205,7 @@ import {
   installRuntimeComponent,
   openLegal,
   openUpgrade,
-  localFreeMode,
+  localQuotaEnabled,
   quotaCostsLabel,
   quotaDisplay,
   quotaResetLabel,

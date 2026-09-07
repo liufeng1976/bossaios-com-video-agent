@@ -90,8 +90,15 @@ export const localFreeMode = computed(() => Boolean(entitlement.value?.localFree
 export const quotaRemaining = computed(() => Number(entitlement.value?.quotaRemaining ?? 0))
 export const localFreeQuota = computed(() => entitlement.value?.localFreeQuota ?? null)
 
+// Metering is off unless an operator turns it on, so every quota label has to
+// read correctly in the unmetered case too -- that is the shipping default.
+export const localQuotaEnabled = computed(() => Boolean(localFreeMode.value && localFreeQuota.value?.enabled))
+
 export const quotaDisplay = computed(() => {
   if (!localFreeMode.value) return `${quotaRemaining.value} BossAI Points`
+  if (!localQuotaEnabled.value) {
+    return tr('本地核心能力不计 BossAI Points', 'Local core features do not consume BossAI Points')
+  }
   const daily = Number(localFreeQuota.value?.dailyUnits ?? 0)
   return tr(
     `今日剩余 ${quotaRemaining.value} / ${daily} 本地额度`,
@@ -104,7 +111,7 @@ export const quotaDisplay = computed(() => {
 // costs the engine no longer charges.
 export const quotaCostsLabel = computed(() => {
   const costs = localFreeQuota.value?.operationUnits
-  if (!localFreeMode.value || !costs) return ''
+  if (!localQuotaEnabled.value || !costs) return ''
   const zh = { rewrite: '改写', tts: '配音', 'digital-human': '数字人' }
   const en = { rewrite: 'rewrite', tts: 'voiceover', 'digital-human': 'digital human' }
   return Object.entries(costs)
@@ -125,6 +132,7 @@ const formatResetAt = (value) => {
 
 export const quotaResetLabel = computed(() => {
   if (localFreeMode.value) {
+    if (!localQuotaEnabled.value) return tr('本地模式无需额度恢复', 'No quota reset for local mode')
     const at = localFreeQuota.value?.resetAt
     return at
       ? tr(`${formatResetAt(at)} 重置`, `Resets ${formatResetAt(at)}`)

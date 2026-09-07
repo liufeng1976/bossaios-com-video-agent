@@ -24,7 +24,14 @@ SCHEMA = "bossai.video-agent-local-free-quota.v1"
 AUTHORITY = "local-free-daily"
 PERIOD = "local-daily"
 
-DEFAULT_DAILY_UNITS = 30
+ALLOWANCE_ENV = "BOSSAI_VIDEO_LOCAL_FREE_DAILY_UNITS"
+
+# A suggested allowance for operators turning this on, not a default. Metering
+# stays off until someone sets the variable, because a limit is only fair once
+# there is somewhere to go when it runs out: today the upgrade path opens a
+# website that does not yet sell this product or take payment. Shipping the
+# limit before the checkout exists would wall customers in with no way out.
+SUGGESTED_DAILY_UNITS = 30
 
 # Cost per finished deliverable. Accessory calls that merely decorate work the
 # customer already paid for -- a title or a cover line for a script they just
@@ -39,14 +46,19 @@ _LOCK = threading.Lock()
 
 
 def daily_units() -> int:
-    raw = str(os.environ.get("BOSSAI_VIDEO_LOCAL_FREE_DAILY_UNITS") or "").strip()
+    """The configured allowance, or 0 when metering is off."""
+    raw = str(os.environ.get(ALLOWANCE_ENV) or "").strip()
     if not raw:
-        return DEFAULT_DAILY_UNITS
+        return 0
     try:
         value = int(raw)
     except ValueError:
-        return DEFAULT_DAILY_UNITS
+        return 0
     return max(0, value)
+
+
+def enabled() -> bool:
+    return daily_units() > 0
 
 
 def units_for(operation: str) -> int:
@@ -109,14 +121,27 @@ def _save(data_root: Path, state: dict[str, Any]) -> None:
 
 
 def snapshot(data_root: Path) -> dict[str, Any]:
+    allowance = daily_units()
+    if allowance <= 0:
+        return {
+            "schema": SCHEMA,
+            "authority": AUTHORITY,
+            "period": PERIOD,
+            "enabled": False,
+            "dailyUnits": 0,
+            "usedUnits": 0,
+            "remainingUnits": 0,
+            "operationUnits": dict(OPERATION_UNITS),
+            "enforcement": "disabled",
+        }
     with _LOCK:
         state = _load(Path(data_root))
-    allowance = daily_units()
     used = int(state["usedUnits"])
     return {
         "schema": SCHEMA,
         "authority": AUTHORITY,
         "period": PERIOD,
+        "enabled": True,
         "date": state["date"],
         "dailyUnits": allowance,
         "usedUnits": used,
@@ -130,7 +155,7 @@ def snapshot(data_root: Path) -> dict[str, Any]:
 
 def has_capacity(data_root: Path, operation: str) -> bool:
     cost = units_for(operation)
-    if cost <= 0:
+    if cost <= 0 or not enabled():
         return True
     return snapshot(data_root)["remainingUnits"] >= cost
 
@@ -138,7 +163,7 @@ def has_capacity(data_root: Path, operation: str) -> bool:
 def consume(data_root: Path, operation: str) -> dict[str, Any]:
     """Charge one finished deliverable against today's allowance."""
     cost = units_for(operation)
-    if cost <= 0:
+    if cost <= 0 or not enabled():
         return snapshot(data_root)
     root = Path(data_root)
     with _LOCK:
