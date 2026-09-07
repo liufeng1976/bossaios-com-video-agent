@@ -47,6 +47,7 @@
           "bossai_os_bridge.py",
           "cosyvoice_adapter.py",
           "cosyvoice_worker.py",
+          "local_quota.py",
           "musetalk_adapter.py",
           "qwen_adapter.py",
           "requirements.txt",

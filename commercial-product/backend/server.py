@@ -25,6 +25,7 @@ if str(HERE) not in sys.path:
 
 import bossai_os_bridge
 import cosyvoice_adapter
+import local_quota
 import musetalk_adapter
 import qwen_adapter
 import video_composer
@@ -364,6 +365,7 @@ def _entitlement_snapshot() -> dict[str, Any]:
 
     def local_free(reason: str) -> dict[str, Any]:
         accepted = bool(eula.get("accepted"))
+        quota = local_quota.snapshot(data_root())
         return {
             **base,
             "status": "local_free" if accepted else "eula_required",
@@ -376,15 +378,25 @@ def _entitlement_snapshot() -> dict[str, Any]:
             "gatewayExecutionAllowed": False,
             "localFreeMode": True,
             "deviceRegistered": False,
-            "quotaAuthority": "none-local-free",
-            "quotaPeriod": "local-unmetered",
+            # Deliberately not the BossAI authority: this number is held on the
+            # customer's own machine and must never be mistaken for the quota
+            # the commercial authority issues.
+            "quotaAuthority": local_quota.AUTHORITY,
+            "quotaPeriod": local_quota.PERIOD,
+            "quotaRemaining": quota["remainingUnits"],
+            "quotaResetAt": quota["resetAt"],
+            "localFreeQuota": quota,
             "upgradeAvailable": True,
             "businessUseAllowed": False,
             "features": sorted(CORE_FEATURES),
             "reason": (
                 "Accept the BossAI Video Agent license terms before local Free Personal execution."
                 if not accepted
-                else f"Local Free Personal is active for personal/non-commercial use. {reason} Commercial use still requires a verified BossAI Business entitlement."
+                else (
+                    f"Local Free Personal is active for personal/non-commercial use. {reason} "
+                    f"{quota['remainingUnits']} of {quota['dailyUnits']} daily local units remain. "
+                    "Commercial use still requires a verified BossAI Business entitlement."
+                )
             ),
         }
 
@@ -487,15 +499,45 @@ def _entitlement_snapshot() -> dict[str, Any]:
     }
 
 
-def require_execution(feature: str) -> None:
-    if _preview_enabled():
-        return
+def require_execution(feature: str, operation: str = "") -> dict[str, Any]:
+    """Gate one request and hand back the snapshot it was judged against.
+
+    ``operation`` names the deliverable about to be produced, which is the unit
+    the local Free Personal daily allowance is counted in. Accessory calls -- a
+    title or cover line for a script the customer already spent units on --
+    name no operation and so cost nothing.
+
+    Returning the snapshot lets callers charge the allowance on success without
+    recomputing it, which would otherwise mean another round trip to the
+    account service for every finished job.
+    """
     snapshot = _entitlement_snapshot()
+    if _preview_enabled():
+        return snapshot
     if not bool(snapshot.get("verified")) or not bool(snapshot.get("executionAllowed")):
         raise HTTPException(403, str(snapshot.get("reason") or "BossAI entitlement does not authorize execution on this installation."))
     features = {str(value).strip() for value in (snapshot.get("features") or []) if str(value).strip()}
     if feature not in features:
         raise HTTPException(403, f"Current BossAI plan does not include feature: {feature}")
+    if bool(snapshot.get("localFreeMode")) and not local_quota.has_capacity(data_root(), operation):
+        quota = snapshot.get("localFreeQuota") or {}
+        raise HTTPException(
+            429,
+            f"Local Free Personal daily allowance is used up ({quota.get('dailyUnits')} units). "
+            f"This operation costs {local_quota.units_for(operation)}. "
+            f"It resets at {quota.get('resetAt')}, or a verified BossAI entitlement lifts the local limit.",
+        )
+    return snapshot
+
+
+def _charge_local_quota(snapshot: dict[str, Any], operation: str) -> None:
+    """Charge a finished deliverable, and only a finished one.
+
+    Paid tiers are metered by the BossAI commercial authority, so their usage
+    must not touch the local counter.
+    """
+    if bool(snapshot.get("localFreeMode")):
+        local_quota.consume(data_root(), operation)
 
 
 def _installation_id() -> str:
@@ -1464,11 +1506,12 @@ def commercial_runtime_install_job(job_id: str, x_bossai_local_control: str = He
 
 @app.post("/api/llm/rewrite")
 def llm_rewrite(body: RewriteBody):
-    require_execution(FEATURE_REWRITE)
+    entitlement = require_execution(FEATURE_REWRITE, "rewrite")
     try:
         rewritten = qwen_adapter.rewrite(body.sourceText, body.model_dump())
     except (RuntimeError, ValueError) as exc:
         raise HTTPException(503, str(exc)) from exc
+    _charge_local_quota(entitlement, "rewrite")
     return {"success": True, "data": {"rewriteText": rewritten, "engine": qwen_adapter.ENGINE_ID}}
 
 
@@ -1620,7 +1663,7 @@ def delete_avatar(avatar_id: str):
 
 @app.post("/api/tts/generate")
 def generate_tts(body: TtsBody):
-    require_execution(FEATURE_TTS)
+    entitlement = require_execution(FEATURE_TTS, "tts")
     reference = _resolve_voice(body.voiceId)
     setup = cosyvoice_adapter.inspect_setup()
     if not setup.get("ready"):
@@ -1653,6 +1696,7 @@ def generate_tts(body: TtsBody):
                 engine=cosyvoice_adapter.ENGINE_ID,
                 sizeBytes=target.stat().st_size,
             )
+            _charge_local_quota(entitlement, "tts")
         except Exception as exc:
             _set_job(_TTS_JOBS, job_id, status="failed", progress=100, message=str(exc))
 
@@ -1738,7 +1782,7 @@ def digital_human_setup():
 
 @app.post("/api/commercial/digital-human/render")
 def render_digital_human(body: DigitalHumanBody):
-    require_execution(FEATURE_DIGITAL_HUMAN)
+    entitlement = require_execution(FEATURE_DIGITAL_HUMAN, "digital-human")
     avatar = _avatar_path(body.avatarId)
     audio = _audio_url_path(body.audioUrl)
     setup = musetalk_adapter.inspect_setup()
@@ -1769,6 +1813,7 @@ def render_digital_human(body: DigitalHumanBody):
                 engine="musetalk-v1.5",
                 sizeBytes=path.stat().st_size,
             )
+            _charge_local_quota(entitlement, "digital-human")
         except Exception as exc:
             _set_job(_DH_JOBS, job_id, status="failed", progress=100, message=str(exc))
 

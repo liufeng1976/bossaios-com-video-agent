@@ -33,6 +33,9 @@
           </div>
           <div class="account-summary">
             <div><span>{{ tr('额度恢复', 'Quota reset') }}</span><strong>{{ quotaResetLabel }}</strong></div>
+            <div v-if="quotaCostsLabel">
+              <span>{{ tr('每次消耗', 'Cost per item') }}</span><strong>{{ quotaCostsLabel }}</strong>
+            </div>
             <div><span>{{ tr('设备绑定', 'Device binding') }}</span><strong>{{ deviceBindingLabel }}</strong></div>
             <div>
               <span>{{ tr('商业用途', 'Commercial use') }}</span>
@@ -88,9 +91,17 @@
           <span :class="['status-badge', executionAllowed ? 'success' : 'warning']">{{ entitlementLabel }}</span>
         </div>
         <div class="account-summary">
-          <div><span>Free Personal</span><strong>{{ tr('永久免费 · 本地核心', 'Free forever · local core') }}</strong></div>
+          <div>
+            <span>Free Personal</span>
+            <strong>{{ localFreeMode ? quotaDisplay : tr('永久免费 · 本地核心', 'Free forever · local core') }}</strong>
+          </div>
           <div><span>Personal Pro</span><strong>{{ tr('订阅 · 本地 + 可选云增强', 'Subscription · local + optional cloud') }}</strong></div>
           <div><span>Business</span><strong>{{ tr('商业授权 · 本地 + 云治理', 'Commercial licence · local + cloud governance') }}</strong></div>
+        </div>
+        <div v-if="localFreeMode" class="account-summary">
+          <div><span>{{ tr('额度恢复', 'Quota reset') }}</span><strong>{{ quotaResetLabel }}</strong></div>
+          <div v-if="quotaCostsLabel"><span>{{ tr('每次消耗', 'Cost per item') }}</span><strong>{{ quotaCostsLabel }}</strong></div>
+          <div><span>{{ tr('计量方式', 'Metering') }}</span><strong>{{ tr('本机计数 · 任务成功才计', 'Counted on this device · charged on success') }}</strong></div>
         </div>
         <p class="account-help">{{ tr('本地核心能力默认在本机执行，不消耗 BossAI Points，也不会在本地 runtime 缺失或失败时静默回退到云端。BossAI AI Gateway 与 BYOK 都是用户主动选择的增强路径；Gateway 按总部 Points 规则计量，BYOK 只改变模型费用承担方式，二者都不能绕过 Entitlement、商业许可或产品权限。', 'Local core features run on this device by default, consume no BossAI Points, and never silently fall back to cloud when a local runtime is missing or fails. BossAI AI Gateway and BYOK are explicit opt-in enhancements; Gateway follows Headquarters Points rules, while BYOK only changes provider-cost responsibility. Neither bypasses entitlement, commercial licensing, or product gates.') }}</p>
         <p v-if="accountAuthenticated && !businessUseAllowed" class="runtime-note">{{ tr('当前套餐仅授权个人用途。为客户交付、公司生产、收费服务或营销经营使用本软件前，请升级到 Business。', 'Your current tier is for personal use only. Upgrade to Business before client delivery, company production, paid services or commercial marketing use.') }}</p>
@@ -194,6 +205,8 @@ import {
   installRuntimeComponent,
   openLegal,
   openUpgrade,
+  localFreeMode,
+  quotaCostsLabel,
   quotaDisplay,
   quotaResetLabel,
   refreshStatus,

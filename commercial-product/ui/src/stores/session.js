@@ -88,16 +88,50 @@ export const tierLabel = computed(() => {
 
 export const localFreeMode = computed(() => Boolean(entitlement.value?.localFreeMode))
 export const quotaRemaining = computed(() => Number(entitlement.value?.quotaRemaining ?? 0))
-export const quotaDisplay = computed(() =>
-  localFreeMode.value
-    ? tr('本地核心能力不计 BossAI Points', 'Local core features do not consume BossAI Points')
-    : `${quotaRemaining.value} BossAI Points`,
-)
-export const quotaResetLabel = computed(() =>
-  localFreeMode.value
-    ? tr('本地模式无需额度恢复', 'No quota reset for local mode')
-    : String(entitlement.value?.quotaResetAt || tr('由 BossAI 权威服务下发', 'Provided by BossAI authority')),
-)
+export const localFreeQuota = computed(() => entitlement.value?.localFreeQuota ?? null)
+
+export const quotaDisplay = computed(() => {
+  if (!localFreeMode.value) return `${quotaRemaining.value} BossAI Points`
+  const daily = Number(localFreeQuota.value?.dailyUnits ?? 0)
+  return tr(
+    `今日剩余 ${quotaRemaining.value} / ${daily} 本地额度`,
+    `${quotaRemaining.value} of ${daily} local units left today`,
+  )
+})
+
+// The per-deliverable prices come from the backend rather than being restated
+// here, so changing the allowance never leaves the Settings screen quoting
+// costs the engine no longer charges.
+export const quotaCostsLabel = computed(() => {
+  const costs = localFreeQuota.value?.operationUnits
+  if (!localFreeMode.value || !costs) return ''
+  const zh = { rewrite: '改写', tts: '配音', 'digital-human': '数字人' }
+  const en = { rewrite: 'rewrite', tts: 'voiceover', 'digital-human': 'digital human' }
+  return Object.entries(costs)
+    .map(([key, units]) => `${tr(zh[key] ?? key, en[key] ?? key)} ${units}`)
+    .join(tr('，', ' · '))
+})
+
+const formatResetAt = (value) => {
+  const at = new Date(String(value || ''))
+  if (Number.isNaN(at.getTime())) return String(value || '')
+  return at.toLocaleString(locale.value === 'en' ? 'en-US' : 'zh-CN', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+export const quotaResetLabel = computed(() => {
+  if (localFreeMode.value) {
+    const at = localFreeQuota.value?.resetAt
+    return at
+      ? tr(`${formatResetAt(at)} 重置`, `Resets ${formatResetAt(at)}`)
+      : tr('每日重置', 'Resets daily')
+  }
+  return String(entitlement.value?.quotaResetAt || tr('由 BossAI 权威服务下发', 'Provided by BossAI authority'))
+})
 export const deviceBindingLabel = computed(() =>
   localFreeMode.value
     ? tr('本地免费模式无需绑定', 'Not required for local free mode')
